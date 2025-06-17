@@ -157,7 +157,10 @@ def get_company_news(company_name):
             "sort":          "datedesc"
         }
 
-        resp = requests.get(url, params=params, headers=headers)
+        try:
+            resp = requests.get(url, params=params, headers=headers, timeout=3)
+        except requests.RequestException as e:
+            continue
         if resp.status_code != 200:
             continue
         if len(resp.text) <= 1:
@@ -212,7 +215,6 @@ with st.sidebar:
 
 if trigger:
     try:
-        st.info(f"Fetching news data for {company_name} from GDELT API...")
         weighted_tone, weighted_article_count = get_company_news(company_name)
     except Exception as e:
         st.error(f"Error fetching news data: {str(e)}")
