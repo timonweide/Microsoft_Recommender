@@ -16,12 +16,20 @@ import cohere
 # --- Load cleaned data ---
 df = pd.read_csv("clean_data_model.csv")
 df['related_list'] = df['related_products'].apply(eval)
+issue_cols = [
+    "Infrastructure", "Data", "AI", "Security", "Collaboration",
+    "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing"
+]
+df["issue_tags"] = (
+    df[issue_cols]
+    .apply(lambda r: [c for c in issue_cols if r[c] == 1], axis=1)
+)
 
 # --- Get API keys ---
 NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
 COHERE_API_KEY = st.secrets["COHERE_API_KEY"]
 
-# --- Preprocessing ---
+# --- Processing ---
 cat_feats = ['business_need', 'industry', 'region']
 num_feats = ['weighted_tone', 'weighted_article_count']
 ord_feats = ['employees']
@@ -58,6 +66,7 @@ model_full.fit(
     num_threads=4
 )
 
+# --- Helpers ---
 def predict_from_inputs(
     business_need, industry, region,
     weighted_tone, weighted_article_count, employees,
@@ -114,6 +123,7 @@ def find_similar_cases_full(new_row_df, top_n_products=5, top_k_cases=5):
             "region": row['region'],
             "employees": row['employees'],
             "related_list": row['related_list'],
+            "issue_tags": row['issue_tags'],
             "full_row": row.to_dict()
         })
     return results
@@ -194,10 +204,13 @@ def get_company_news(company_name):
     return weighted_tone, weighted_article_count
 
 
-# Streamlit UI
+# --- UI ---
 st.set_page_config(page_title="Microsoft Product Recommender", layout="wide")
 st.title("🔍 Microsoft Product Recommender")
+st.markdown("This tool helps Microsoft sales teams recommend products based on company features, historical sales, and news sentiment. Get started by filling out the form in the sidebar!")
+tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
 
+# --- Sidebar ---
 with st.sidebar:
     region_order = ['North America', 'South America', 'Nordics', 'Western Europe', 'Central Europe','Eastern Europe',
                     'Southern Europe', 'Africa', 'Middle East', 'East Asia', 'Southeast Asia',  'South Asia', 'Oceania']
@@ -216,55 +229,66 @@ with st.sidebar:
     st.markdown("---")
     trigger = st.button("🚀 Generate Insights")
 
+# --- Generation ---
 if trigger:
-    try:
-        weighted_tone, weighted_article_count = get_company_news(company_name)
-    except Exception as e:
-        st.error(f"Error fetching news data: {str(e)}")
-        weighted_tone = df['weighted_tone'].mean()
-        weighted_article_count = df['weighted_article_count'].mean()
+    with st.status("Generating insights…", expanded=True) as status:
 
-    recommendations = predict_from_inputs(business_need, industry, region, weighted_tone, weighted_article_count, employees,
-        tag_inputs['Infrastructure'], tag_inputs['Data'], tag_inputs['AI'], tag_inputs['Security'], tag_inputs['Collaboration'],
-        tag_inputs['Sustainability'], tag_inputs['Customer Experience'], tag_inputs['Supply Chain'], tag_inputs['Manufacturing'],
-        model_full, preprocessor_full, item_features, product_names)
+# Company News        
+        status.write("🔍 Fetching company news")
+    
+        try:
+            weighted_tone, weighted_article_count = get_company_news(company_name)
+        except Exception as e:
+            st.error(f"Error fetching news data: {str(e)}")
+            weighted_tone = df['weighted_tone'].mean()
+            weighted_article_count = df['weighted_article_count'].mean()
 
-    sim_cases = find_similar_cases_full(pd.DataFrame({
-        'business_need': [business_need],
-        'industry': [industry],
-        'region': [region],
-        'weighted_tone': [weighted_tone],
-        'weighted_article_count': [weighted_article_count],
-        'employees': [employees],
-        **{tag: [tag_inputs[tag]] for tag in tags}
-    }))
+# Recommendations
+        status.write("♟️ Computing recommendations")
 
-    tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
-
-    with tab1:
-        st.subheader("Top 5 Recommended Products")
-        st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
-
-    with tab2:
-        col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "url", "weighted_tone", "weighted_article_count",
-                   "Infrastructure", "Data", "AI", "Security", "Collaboration", "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing", "related_products"]
-        st.subheader("Most Similar Use Cases")
-        sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
-        sim_df = sim_df[col_order]
-        st.dataframe(sim_df)
+        recommendations = predict_from_inputs(business_need, industry, region, weighted_tone, weighted_article_count, employees,
+            tag_inputs['Infrastructure'], tag_inputs['Data'], tag_inputs['AI'], tag_inputs['Security'], tag_inputs['Collaboration'],
+            tag_inputs['Sustainability'], tag_inputs['Customer Experience'], tag_inputs['Supply Chain'], tag_inputs['Manufacturing'],
+            model_full, preprocessor_full, item_features, product_names)
         
+        inputs_summary = {
+            "Company":               company_name or "—",
+            "Business need":         business_need,
+            "Industry":              industry,
+            "Region":                region,
+            "Employees":             employees,
+            "Weighted tone":         round(weighted_tone, 2),
+            "Weighted art. count":   round(weighted_article_count, 3),
+            "Issue tags selected":   ", ".join([t for t, v in tag_inputs.items() if v]) or "None"
+        }
+        
+        inputs_df = (
+            pd.DataFrame.from_dict(inputs_summary, orient="index", columns=["Value"])
+            .rename_axis("")         # hides the index header row
+        )
 
-    with tab3:
-        st.subheader("🎯 Sales Story Generator")
+# Similar Cases
+        status.write("🗂️ Looking up similar cases")
 
-        # Get first similar case to anchor story
+        sim_cases = find_similar_cases_full(pd.DataFrame({
+            'business_need': [business_need],
+            'industry': [industry],
+            'region': [region],
+            'weighted_tone': [weighted_tone],
+            'weighted_article_count': [weighted_article_count],
+            'employees': [employees],
+            **{tag: [tag_inputs[tag]] for tag in tags}
+        }))
+
+# LLM Generation
+        status.write("✍️ Drafting outreach email")
+
         example_case = sim_cases[0]
         case_industry = example_case['industry']
         case_region = example_case['region']
         case_need = example_case['business_need']
         case_products = example_case['related_list']
 
-        # Optional ROI-style values by business need
         business_impact_map = {
             "Customer Engagement": "increase conversion by 15–30%",
             "Supply Chain Optimization": "reduce operational costs by up to 20%",
@@ -274,7 +298,6 @@ if trigger:
         }
         impact_sentence = business_impact_map.get(business_need, "achieve measurable business impact")
 
-        # Build sales story prompt
         summary_prompt = f"""
         You're a strategic Microsoft sales advisor writing a consultative pitch.
 
@@ -288,7 +311,6 @@ if trigger:
         Please write this as a short outreach email. No headings, just full text.
         """
 
-        # Call Cohere API
         try:
             co = cohere.Client(COHERE_API_KEY)
             response = co.generate(model='command-r-plus', prompt=summary_prompt, max_tokens=300)
@@ -296,41 +318,18 @@ if trigger:
         except Exception as e:
             summary = f"⚠️ Cohere API error: {str(e)}"
 
-        # Build final email
-        email_txt = f"""Dear {company_name},\n\n{summary}\n\nBest regards,\nYour Microsoft Sales Team"""
-
-        st.markdown("### ✉️ Suggested Outreach Email")
-        st.text_area("Generated Email", email_txt, height=250)
-
-        st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
-
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        for line in email_txt.split('\n'):
-            pdf.multi_cell(0, 10, line)
-        pdf.output("sales_email.pdf")
-
-        with open("sales_email.pdf", "rb") as f:
-            pdf_data = f.read()
-            b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
-            href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
-            st.markdown(href, unsafe_allow_html=True)
-
-        # === Industry News Summary ===
-        st.markdown("---")
-        st.subheader("📈 Industry Trends You Should Know")
+        email_txt = f"""{summary}\n\nBest regards,\nYour Microsoft Sales Team"""
 
         news_headlines, news_text = get_industry_news(industry)
 
         if news_text:
             try:
                 news_summary_prompt = f"""
-Please extract exactly three current trends from the following news descriptions related to the {industry} industry.
+                Please extract exactly three current trends from the following news descriptions related to the {industry} industry.
 
-Format your response as a numbered list with short, clear sentences. Each point should be no longer than 2 lines:
+                Format your response as a numbered list with short, clear sentences. Each point should be no longer than 2 lines:
 
-{news_text}
+                {news_text}
                 """.strip()
 
                 news_response = co.generate(
@@ -344,6 +343,47 @@ Format your response as a numbered list with short, clear sentences. Each point 
                 trends = f"⚠️ Cohere summarization error: {str(e)}"
         else:
             trends = "No recent news available for this industry."
+
+        status.update(label="All done!", state="complete")
+
+# --- Main Content ---
+    with tab1:
+        st.subheader("Top 5 Recommended Products")
+        st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
+        with st.expander("View Input Parameters"):
+            st.markdown("These parameters were used to generate the recommendations:")
+            st.table(inputs_df)
+
+    with tab2:
+        col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "url", "weighted_tone", "weighted_article_count",
+                    "Infrastructure", "Data", "AI", "Security", "Collaboration", "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing", "related_products"]
+        st.subheader("Most Similar Use Cases")
+        sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
+        sim_df = sim_df[col_order]
+        st.dataframe(sim_df)
+        
+    with tab3:
+        st.subheader("🎯 Sales Story Generator")
+
+        st.markdown("### ✉️ Suggested Outreach Email")
+        st.text_area("Generated Email", email_txt, height=250)
+
+        st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        for line in email_txt.split('\n'):
+            pdf.multi_cell(0, 10, line)
+        pdf.output("sales_email.pdf")
+        with open("sales_email.pdf", "rb") as f:
+            pdf_data = f.read()
+            b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+            href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
+            st.markdown(href, unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.subheader("📈 Industry Trends You Should Know")
 
         st.markdown("**📰 Top Headlines:**")
         for hl in news_headlines:
