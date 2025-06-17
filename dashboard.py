@@ -264,7 +264,7 @@ def generate_trends(news_headlines, news_text, industry):
                 )
                 trends = news_response.generations[0].text.strip()
             except Exception as e:
-                trends = f"⚠️ Cohere API error: {str(e)}""
+                trends = f"⚠️ Cohere API error: {str(e)}"
         except Exception as e:
             trends = f"⚠️ Cohere summarization error: {str(e)}"
     else:
