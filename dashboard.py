@@ -298,104 +298,103 @@ with st.sidebar:
 
 # --- Main Content ---
 if trigger:
-    with st.status("Generating insights…", expanded=False) as status:
-        tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
+    tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
 
 # Recommendations
-        status.write("🔍 Fetching company news")
+    progress = st.progress(0, text="Fetching company news…")
+
+    weighted_tone, weighted_article_count = get_company_news(company_name, df)
+
+    progress.progress(20, text="Calculating recommendations…")
+
+    recommendations = predict_from_inputs(business_need, industry, region, weighted_tone, weighted_article_count, employees,
+        tag_inputs['Infrastructure'], tag_inputs['Data'], tag_inputs['AI'], tag_inputs['Security'], tag_inputs['Collaboration'],
+        tag_inputs['Sustainability'], tag_inputs['Customer Experience'], tag_inputs['Supply Chain'], tag_inputs['Manufacturing'],
+        model_full, preprocessor_full, item_features, product_names)
     
-        weighted_tone, weighted_article_count = get_company_news(company_name, df)
+    inputs_summary = {
+        "Company":               company_name or "—",
+        "Business need":         business_need,
+        "Industry":              industry,
+        "Region":                region,
+        "Employees":             employees,
+        "Weighted tone":         round(weighted_tone, 2),
+        "Weighted art. count":   round(weighted_article_count, 3),
+        "Issue tags selected":   ", ".join([t for t, v in tag_inputs.items() if v]) or "None"
+    }
+    
+    inputs_df = (
+        pd.DataFrame.from_dict(inputs_summary, orient="index", columns=["Value"])
+        .rename_axis("")
+    )
 
-        status.write("♟️ Computing recommendations")
-
-        recommendations = predict_from_inputs(business_need, industry, region, weighted_tone, weighted_article_count, employees,
-            tag_inputs['Infrastructure'], tag_inputs['Data'], tag_inputs['AI'], tag_inputs['Security'], tag_inputs['Collaboration'],
-            tag_inputs['Sustainability'], tag_inputs['Customer Experience'], tag_inputs['Supply Chain'], tag_inputs['Manufacturing'],
-            model_full, preprocessor_full, item_features, product_names)
-        
-        inputs_summary = {
-            "Company":               company_name or "—",
-            "Business need":         business_need,
-            "Industry":              industry,
-            "Region":                region,
-            "Employees":             employees,
-            "Weighted tone":         round(weighted_tone, 2),
-            "Weighted art. count":   round(weighted_article_count, 3),
-            "Issue tags selected":   ", ".join([t for t, v in tag_inputs.items() if v]) or "None"
-        }
-        
-        inputs_df = (
-            pd.DataFrame.from_dict(inputs_summary, orient="index", columns=["Value"])
-            .rename_axis("")
-        )
-
-        with tab1:
-            st.subheader("Top 5 Recommended Products")
-            st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
-            with st.expander("View Input Parameters"):
-                st.markdown("These parameters were used to generate the recommendations:")
-                st.table(inputs_df)
+    with tab1:
+        st.subheader("Top 5 Recommended Products")
+        st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
+        with st.expander("View Input Parameters"):
+            st.markdown("These parameters were used to generate the recommendations:")
+            st.table(inputs_df)
 
 
 # Similar Cases
-        status.write("🗂️ Looking up similar cases")
+    progress.progress(40, text="Finding similar cases…")
 
-        sim_cases = find_similar_cases_full(pd.DataFrame({
-            'business_need': [business_need],
-            'industry': [industry],
-            'region': [region],
-            'weighted_tone': [weighted_tone],
-            'weighted_article_count': [weighted_article_count],
-            'employees': [employees],
-            **{tag: [tag_inputs[tag]] for tag in tags}
-        }))
+    sim_cases = find_similar_cases_full(pd.DataFrame({
+        'business_need': [business_need],
+        'industry': [industry],
+        'region': [region],
+        'weighted_tone': [weighted_tone],
+        'weighted_article_count': [weighted_article_count],
+        'employees': [employees],
+        **{tag: [tag_inputs[tag]] for tag in tags}
+    }))
 
-        with tab2:
-            col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "url", "weighted_tone", "weighted_article_count",
-                        "Infrastructure", "Data", "AI", "Security", "Collaboration", "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing", "related_products"]
-            st.subheader("Most Similar Use Cases")
-            sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
-            sim_df = sim_df[col_order]
-            st.dataframe(sim_df)
+    with tab2:
+        col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "url", "weighted_tone", "weighted_article_count",
+                    "Infrastructure", "Data", "AI", "Security", "Collaboration", "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing", "related_products"]
+        st.subheader("Most Similar Use Cases")
+        sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
+        sim_df = sim_df[col_order]
+        st.dataframe(sim_df)
 
 # Sales Pitch
-        status.write("✍️ Drafting outreach email")
+    progress.progress(60, text="Drafting outreach email…")
 
-        email_txt = generate_email(sim_cases, recommendations, business_need, industry, region)
+    email_txt = generate_email(sim_cases, recommendations, business_need, industry, region)
 
-        status.write("📰 Generating industry trends")
+    progress.progress(80, text="Fetching industry trends…")
 
-        news_headlines, news_text = get_industry_news(industry)
-        news_headlines, trends = generate_trends(news_headlines, news_text, industry)
+    news_headlines, news_text = get_industry_news(industry)
+    news_headlines, trends = generate_trends(news_headlines, news_text, industry)
 
-        status.update(label="All done!", state="complete")
+    progress.progress(100, text="Done! 🎉")
 
-        with tab3:
-            st.subheader("🎯 Sales Story Generator")
+    with tab3:
+        st.subheader("🎯 Sales Story Generator")
 
-            st.markdown("### ✉️ Suggested Outreach Email")
-            st.text_area("Generated Email", email_txt, height=250)
+        st.markdown("### ✉️ Suggested Outreach Email")
+        st.text_area("Generated Email", email_txt, height=250)
 
-            st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
+        st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
 
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", size=12)
-            for line in email_txt.split('\n'):
-                pdf.multi_cell(0, 10, line)
-            pdf.output("sales_email.pdf")
-            with open("sales_email.pdf", "rb") as f:
-                pdf_data = f.read()
-                b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
-                href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
-                st.markdown(href, unsafe_allow_html=True)
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        for line in email_txt.split('\n'):
+            pdf.multi_cell(0, 10, line)
+        pdf.output("sales_email.pdf")
+        with open("sales_email.pdf", "rb") as f:
+            pdf_data = f.read()
+            b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+            href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
+            st.markdown(href, unsafe_allow_html=True)
 
-            st.markdown("---")
-            st.subheader("📈 Industry Trends You Should Know")
+        st.markdown("---")
+        st.subheader("📈 Industry Trends You Should Know")
 
-            st.markdown("**📰 Top Headlines:**")
-            for hl in news_headlines:
-                st.markdown(hl)
+        st.markdown("**📰 Top Headlines:**")
+        for hl in news_headlines:
+            st.markdown(hl)
 
-            st.markdown("**🧠 Key Industry Trends:**")
-            st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
+        st.markdown("**🧠 Key Industry Trends:**")
+        st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
