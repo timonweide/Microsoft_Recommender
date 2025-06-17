@@ -13,7 +13,7 @@ from fpdf import FPDF
 import base64
 import cohere
 
-# --- Load cleaned data ---
+# --- Preparation ---
 df = pd.read_csv("clean_data_model.csv")
 df['related_list'] = df['related_products'].apply(eval)
 issue_cols = [
@@ -141,7 +141,7 @@ def get_industry_news(industry, max_articles=5):
     except Exception as e:
         return [f"Error fetching news: {e}"], ""
     
-def get_company_news(company_name):
+def get_company_news(company_name, df):
     modes = ["timelinetone", "timelinevolraw"]
     today = datetime.today().strftime('%Y%m%d')
     end_date = (pd.to_datetime(today, format='%Y%m%d') - pd.DateOffset(days=3)).strftime('%Y%m%d')
@@ -156,8 +156,8 @@ def get_company_news(company_name):
     }
 
     merged_df = pd.DataFrame()
-    weighted_tone = 0.0
-    weighted_article_count = 0.0
+    weighted_tone = df['weighted_tone'].mean()
+    weighted_article_count = df['weighted_article_count'].mean()
 
     for mode in modes:
         params = {
@@ -203,12 +203,79 @@ def get_company_news(company_name):
     
     return weighted_tone, weighted_article_count
 
+def generate_email(sim_cases, recommendations, business_need, industry, region):
+    example_case = sim_cases[0]
+    case_industry = example_case['industry']
+    case_region = example_case['region']
+    case_need = example_case['business_need']
+    case_products = example_case['related_list']
+
+    business_impact_map = {
+        "Customer Engagement": "increase conversion by 15–30%",
+        "Supply Chain Optimization": "reduce operational costs by up to 20%",
+        "Workforce Productivity": "boost output per employee by 25%",
+        "Sustainability": "lower energy costs by 12–18%",
+        "Data Analytics": "accelerate insights generation by 40%"
+    }
+    impact_sentence = business_impact_map.get(business_need, "achieve measurable business impact")
+
+    summary_prompt = f"""
+    You're a strategic Microsoft sales advisor writing a consultative pitch.
+
+    1. Start with a short sentence explaining a **typical challenge** for a company in the {industry} sector with a need for {business_need.lower()} in {region}.
+    2. Present Microsoft's **recommended solutions**: {', '.join(p for p, _ in recommendations)}.
+    3. Summarize how these tools solve the problem and lead to outcomes like {impact_sentence}.
+    4. Include a brief **story from a similar case**: A company in the {case_industry} sector (also focused on {case_need}) benefited from: {', '.join(case_products)}.
+    5. Keep the tone persuasive but professional.
+    6. Wrap up with a positive outlook for digital transformation.
+
+    Please write this as a short outreach email. No headings, just full text.
+    """
+
+    try:
+        co = cohere.Client(COHERE_API_KEY)
+        response = co.generate(model='command-r-plus', prompt=summary_prompt, max_tokens=300)
+        summary = response.generations[0].text.strip()
+    except Exception as e:
+        summary = f"⚠️ Cohere API error: {str(e)}"
+
+    email_txt = f"""{summary}\n\nBest regards,\nYour Microsoft Sales Team"""
+
+    return email_txt
+
+def generate_trends(news_headlines, news_text, industry):
+    if news_text:
+        try:
+            news_summary_prompt = f"""
+            Please extract exactly three current trends from the following news descriptions related to the {industry} industry.
+
+            Format your response as a numbered list with short, clear sentences. Each point should be no longer than 2 lines:
+
+            {news_text}
+            """.strip()
+
+            try:
+                co = cohere.Client(COHERE_API_KEY)
+                news_response = co.generate(
+                    model='command-r-plus',
+                    prompt=news_summary_prompt,
+                    max_tokens=90,
+                    temperature=0.4
+                )
+                trends = news_response.generations[0].text.strip()
+            except Exception as e:
+                trends = f"⚠️ Cohere API error: {str(e)}""
+        except Exception as e:
+            trends = f"⚠️ Cohere summarization error: {str(e)}"
+    else:
+        trends = "No recent news available for this industry."
+
+    return news_headlines, trends
 
 # --- UI ---
 st.set_page_config(page_title="Microsoft Product Recommender", layout="wide")
 st.title("🔍 Microsoft Product Recommender")
 st.markdown("This tool helps Microsoft sales teams recommend products based on company features, historical sales, and news sentiment. Get started by filling out the form in the sidebar!")
-tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
 
 # --- Sidebar ---
 with st.sidebar:
@@ -231,17 +298,12 @@ with st.sidebar:
 
 # --- Generation ---
 if trigger:
-    with st.status("Generating insights…", expanded=True) as status:
+    with st.status("Generating insights…", expanded=False) as status:
 
 # Company News        
         status.write("🔍 Fetching company news")
     
-        try:
-            weighted_tone, weighted_article_count = get_company_news(company_name)
-        except Exception as e:
-            st.error(f"Error fetching news data: {str(e)}")
-            weighted_tone = df['weighted_tone'].mean()
-            weighted_article_count = df['weighted_article_count'].mean()
+        weighted_tone, weighted_article_count = get_company_news(company_name, df)
 
 # Recommendations
         status.write("♟️ Computing recommendations")
@@ -264,7 +326,7 @@ if trigger:
         
         inputs_df = (
             pd.DataFrame.from_dict(inputs_summary, orient="index", columns=["Value"])
-            .rename_axis("")         # hides the index header row
+            .rename_axis("")
         )
 
 # Similar Cases
@@ -280,114 +342,63 @@ if trigger:
             **{tag: [tag_inputs[tag]] for tag in tags}
         }))
 
-# LLM Generation
+# Email Generation
         status.write("✍️ Drafting outreach email")
 
-        example_case = sim_cases[0]
-        case_industry = example_case['industry']
-        case_region = example_case['region']
-        case_need = example_case['business_need']
-        case_products = example_case['related_list']
+        email_txt = generate_email(sim_cases, recommendations, business_need, industry, region)
 
-        business_impact_map = {
-            "Customer Engagement": "increase conversion by 15–30%",
-            "Supply Chain Optimization": "reduce operational costs by up to 20%",
-            "Workforce Productivity": "boost output per employee by 25%",
-            "Sustainability": "lower energy costs by 12–18%",
-            "Data Analytics": "accelerate insights generation by 40%"
-        }
-        impact_sentence = business_impact_map.get(business_need, "achieve measurable business impact")
-
-        summary_prompt = f"""
-        You're a strategic Microsoft sales advisor writing a consultative pitch.
-
-        1. Start with a short sentence explaining a **typical challenge** for a company in the {industry} sector with a need for {business_need.lower()} in {region}.
-        2. Present Microsoft's **recommended solutions**: {', '.join(p for p, _ in recommendations)}.
-        3. Summarize how these tools solve the problem and lead to outcomes like {impact_sentence}.
-        4. Include a brief **story from a similar case**: A company in the {case_industry} sector (also focused on {case_need}) benefited from: {', '.join(case_products)}.
-        5. Keep the tone persuasive but professional.
-        6. Wrap up with a positive outlook for digital transformation.
-
-        Please write this as a short outreach email. No headings, just full text.
-        """
-
-        try:
-            co = cohere.Client(COHERE_API_KEY)
-            response = co.generate(model='command-r-plus', prompt=summary_prompt, max_tokens=300)
-            summary = response.generations[0].text.strip()
-        except Exception as e:
-            summary = f"⚠️ Cohere API error: {str(e)}"
-
-        email_txt = f"""{summary}\n\nBest regards,\nYour Microsoft Sales Team"""
+# Industry News and Trends
+        status.write("📰 Generating industry trends")
 
         news_headlines, news_text = get_industry_news(industry)
-
-        if news_text:
-            try:
-                news_summary_prompt = f"""
-                Please extract exactly three current trends from the following news descriptions related to the {industry} industry.
-
-                Format your response as a numbered list with short, clear sentences. Each point should be no longer than 2 lines:
-
-                {news_text}
-                """.strip()
-
-                news_response = co.generate(
-                    model='command-r-plus',
-                    prompt=news_summary_prompt,
-                    max_tokens=90,
-                    temperature=0.4
-                )
-                trends = news_response.generations[0].text.strip()
-            except Exception as e:
-                trends = f"⚠️ Cohere summarization error: {str(e)}"
-        else:
-            trends = "No recent news available for this industry."
+        news_headlines, trends = generate_trends(news_headlines, news_text, industry)
 
         status.update(label="All done!", state="complete")
 
 # --- Main Content ---
-    with tab1:
-        st.subheader("Top 5 Recommended Products")
-        st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
-        with st.expander("View Input Parameters"):
-            st.markdown("These parameters were used to generate the recommendations:")
-            st.table(inputs_df)
+tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
 
-    with tab2:
-        col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "url", "weighted_tone", "weighted_article_count",
-                    "Infrastructure", "Data", "AI", "Security", "Collaboration", "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing", "related_products"]
-        st.subheader("Most Similar Use Cases")
-        sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
-        sim_df = sim_df[col_order]
-        st.dataframe(sim_df)
-        
-    with tab3:
-        st.subheader("🎯 Sales Story Generator")
+with tab1:
+    st.subheader("Top 5 Recommended Products")
+    st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
+    with st.expander("View Input Parameters"):
+        st.markdown("These parameters were used to generate the recommendations:")
+        st.table(inputs_df)
 
-        st.markdown("### ✉️ Suggested Outreach Email")
-        st.text_area("Generated Email", email_txt, height=250)
+with tab2:
+    col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "url", "weighted_tone", "weighted_article_count",
+                "Infrastructure", "Data", "AI", "Security", "Collaboration", "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing", "related_products"]
+    st.subheader("Most Similar Use Cases")
+    sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
+    sim_df = sim_df[col_order]
+    st.dataframe(sim_df)
+    
+with tab3:
+    st.subheader("🎯 Sales Story Generator")
 
-        st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
+    st.markdown("### ✉️ Suggested Outreach Email")
+    st.text_area("Generated Email", email_txt, height=250)
 
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        for line in email_txt.split('\n'):
-            pdf.multi_cell(0, 10, line)
-        pdf.output("sales_email.pdf")
-        with open("sales_email.pdf", "rb") as f:
-            pdf_data = f.read()
-            b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
-            href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
-            st.markdown(href, unsafe_allow_html=True)
+    st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
 
-        st.markdown("---")
-        st.subheader("📈 Industry Trends You Should Know")
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    for line in email_txt.split('\n'):
+        pdf.multi_cell(0, 10, line)
+    pdf.output("sales_email.pdf")
+    with open("sales_email.pdf", "rb") as f:
+        pdf_data = f.read()
+        b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+        href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
+        st.markdown(href, unsafe_allow_html=True)
 
-        st.markdown("**📰 Top Headlines:**")
-        for hl in news_headlines:
-            st.markdown(hl)
+    st.markdown("---")
+    st.subheader("📈 Industry Trends You Should Know")
 
-        st.markdown("**🧠 Key Industry Trends:**")
-        st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
+    st.markdown("**📰 Top Headlines:**")
+    for hl in news_headlines:
+        st.markdown(hl)
+
+    st.markdown("**🧠 Key Industry Trends:**")
+    st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
