@@ -130,6 +130,63 @@ def get_industry_news(industry, max_articles=5):
         return headlines, full_text
     except Exception as e:
         return [f"Error fetching news: {e}"], ""
+    
+def get_company_news(company_name):
+    modes = ["timelinetone", "timelinevolraw"]
+    today = datetime.today().strftime('%Y%m%d')
+    end_date = (pd.to_datetime(today, format='%Y%m%d') - pd.DateOffset(days=3)).strftime('%Y%m%d')
+    start_date = (pd.to_datetime(end_date, format='%Y%m%d') - pd.DateOffset(days=90)).strftime('%Y%m%d')
+    url = "https://api.gdeltproject.org/api/v2/doc/doc"
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/115.0.0.0 Safari/537.36"
+        )
+    }
+
+    merged_df = pd.DataFrame()
+    for mode in modes:
+        params = {
+            "query":         f"{company_name}",
+            "mode":          mode,
+            "format":        "csv",
+            "startdatetime": f"{start_date}000000",
+            "enddatetime":   f"{end_date}000000",
+            "maxrecords":    250,
+            "sort":          "datedesc"
+        }
+
+        resp = requests.get(url, params=params, headers=headers)
+        if resp.status_code != 200:
+            continue
+        if len(resp.text) <= 1:
+            continue
+
+        resp_df = pd.read_csv(StringIO(resp.text))
+        if mode in {"timelinetone", "timelinevolraw", "timelinelang", "timelinesourcecountry"}:
+            if {'Date', 'Series', 'Value'}.issubset(resp_df.columns):
+                resp_df = resp_df.pivot(index="Date", columns="Series", values="Value").reset_index()
+            else:
+                continue
+        
+        if merged_df.empty:
+            merged_df = resp_df
+        else:
+            merged_df = pd.merge(merged_df, resp_df, on="Date", how="outer")
+            merged_df = merged_df.dropna(subset=['Average Tone', 'Article Count', 'Total Monitored Articles'])
+
+            weighted_tone = (
+                (merged_df['Average Tone'] * merged_df['Article Count']).sum()
+                / merged_df['Article Count'].sum()
+            )
+
+            weighted_article_count = (
+                (merged_df['Article Count'] / merged_df['Total Monitored Articles']).mean()
+            )
+    
+    return weighted_tone, weighted_article_count
+
 
 # Streamlit UI
 st.set_page_config(page_title="Microsoft Product Recommender", layout="wide")
@@ -154,8 +211,14 @@ with st.sidebar:
     trigger = st.button("🚀 Generate Insights")
 
 if trigger:
-    # Mock news metrics
-    weighted_tone, weighted_article_count = 0.05, 0.000014
+    try:
+        st.info(f"Fetching news data for {company_name} from GDELT API...")
+        weighted_tone, weighted_article_count = get_company_news(company_name)
+    except Exception as e:
+        st.error(f"Error fetching news data: {str(e)}")
+        weighted_tone = df['weighted_tone'].mean()
+        weighted_article_count = df['weighted_article_count'].mean()
+
     recommendations = predict_from_inputs(business_need, industry, region, weighted_tone, weighted_article_count, employees,
         tag_inputs['Infrastructure'], tag_inputs['Data'], tag_inputs['AI'], tag_inputs['Security'], tag_inputs['Collaboration'],
         tag_inputs['Sustainability'], tag_inputs['Customer Experience'], tag_inputs['Supply Chain'], tag_inputs['Manufacturing'],
