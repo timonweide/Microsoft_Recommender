@@ -24,6 +24,9 @@ df["issue_tags"] = (
     df[issue_cols]
     .apply(lambda r: [c for c in issue_cols if r[c] == 1], axis=1)
 )
+region_order = ['North America', 'South America', 'Nordics', 'Western Europe', 'Central Europe','Eastern Europe',
+                    'Southern Europe', 'Africa', 'Middle East', 'East Asia', 'Southeast Asia',  'South Asia', 'Oceania']
+employees_order = ['1-49 employees', '50-999 employees', '1,000-9,999 employees', '10,000+ employees']
 
 # --- Get API keys ---
 NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
@@ -283,11 +286,8 @@ st.markdown("This tool helps Microsoft sales teams recommend products based on c
 
 # --- Sidebar ---
 with st.sidebar:
-    st.subheader("Input Parameters")
-
-    region_order = ['North America', 'South America', 'Nordics', 'Western Europe', 'Central Europe','Eastern Europe',
-                    'Southern Europe', 'Africa', 'Middle East', 'East Asia', 'Southeast Asia',  'South Asia', 'Oceania']
-    employees_order = ['1-49 employees', '50-999 employees', '1,000-9,999 employees', '10,000+ employees']
+    st.header("Input Parameters")
+    st.markdown("---")
     company_name = st.text_input("Company Name")
     business_need = st.selectbox("Business Need",sorted(df["business_need"].dropna().unique()))
     industry = st.selectbox("Industry", sorted(df["industry"].dropna().unique()))
