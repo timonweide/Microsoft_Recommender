@@ -146,6 +146,9 @@ def get_company_news(company_name):
     }
 
     merged_df = pd.DataFrame()
+    weighted_tone = 0.0
+    weighted_article_count = 0.0
+
     for mode in modes:
         params = {
             "query":         f"{company_name}",
