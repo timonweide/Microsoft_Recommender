@@ -68,33 +68,12 @@ model_full.fit(
 
 # --- Helpers ---
 def predict_from_inputs(
-    business_need, industry, region,
-    weighted_tone, weighted_article_count, employees,
-    infrastructure, data, ai, security, collaboration,
-    sustainability, customer_experience, supply_chain, manufacturing,
-    model, preprocessor, item_features, product_names, top_n=5
+    new_row_df, model,
+    preprocessor, item_features,
+    product_names, top_n=5
     ):
     
-    input_dict = {
-        'business_need':         [business_need],
-        'industry':              [industry],
-        'region':                [region],
-        'weighted_tone':         [weighted_tone],
-        'weighted_article_count':[weighted_article_count],
-        'employees':             [employees],
-        'Infrastructure':        [infrastructure],
-        'Data':                  [data],
-        'AI':                    [ai],
-        'Security':              [security],
-        'Collaboration':         [collaboration],
-        'Sustainability':        [sustainability],
-        'Customer Experience':   [customer_experience],
-        'Supply Chain':          [supply_chain],
-        'Manufacturing':         [manufacturing]
-    }
-    df_input = pd.DataFrame(input_dict)
-
-    X_user = preprocessor.transform(df_input)
+    X_user = preprocessor.transform(new_row_df)
     user_features = csr_matrix(X_user)
     
     n_items = len(product_names)
@@ -319,12 +298,24 @@ with st.sidebar:
     st.markdown("---")
     tone = st.selectbox("Email Style", ["Formal", "Playful", "Concise"])
     st.markdown("---")
+    n_recs = st.slider("How many products should we recommend?", min_value=1,  max_value=10,  value=5,  step=1)
+    st.markdown("---")
     trigger = st.button("🚀 Generate Insights")
 
 # --- Main Content ---
 tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
 
 if trigger:
+    new_row_df = pd.DataFrame([{
+        'company_name': company_name,
+        'business_need': business_need,
+        'industry': industry,
+        'region': region,
+        'employees': employees,
+        'weighted_tone': 0.0,  # Placeholder, will be updated after fetching news
+        'weighted_article_count': 0.0,  # Placeholder, will be updated after fetching news,
+        **tag_inputs
+    }])
 
 # Recommendations
     with tab1:
@@ -332,16 +323,17 @@ if trigger:
 
             status.write("🔍 Fetching company news")
             weighted_tone, weighted_article_count = get_company_news(company_name, df)
+            new_row_df['weighted_tone'] = weighted_tone
+            new_row_df['weighted_article_count'] = weighted_article_count
 
             status.write("♟️ Computing recommendations")
             recommendations = predict_from_inputs(
-                business_need, industry, region,
-                weighted_tone, weighted_article_count, employees,
-                tag_inputs['Infrastructure'], tag_inputs['Data'], tag_inputs['AI'],
-                tag_inputs['Security'], tag_inputs['Collaboration'],
-                tag_inputs['Sustainability'], tag_inputs['Customer Experience'],
-                tag_inputs['Supply Chain'], tag_inputs['Manufacturing'],
-                model_full, preprocessor_full, item_features, product_names
+                new_row_df=new_row_df,
+                model=model_full,
+                preprocessor=preprocessor_full,
+                item_features=item_features,
+                product_names=product_names,
+                top_n=n_recs
             )
 
             inputs_summary = {
@@ -372,22 +364,19 @@ if trigger:
         with st.status("Finding similar cases...", expanded=False) as status:
             
             status.write("🗂️ Looking up similar cases")
+            predicted_products = [p for p, _ in recommendations]
             sim_cases = find_similar_cases_full(
-                pd.DataFrame([{
-                    'business_need': business_need,
-                    'industry': industry,
-                    'region': region,
-                    'employees': employees,
-                    'weighted_tone': weighted_tone,
-                    'weighted_article_count': weighted_article_count,
-                    **tag_inputs
-                }]),
-                [p for p, _ in recommendations],
-                X_full, R_full, df, product_names,
-                preprocessor_full
+                new_row_df=new_row_df,
+                predicted_products=predicted_products,
+                X_full=X_full,
+                R_full=interactions_full,
+                df=df,
+                product_names=product_names,
+                preprocessor_full=preprocessor_full,
+                top_k_cases=5
             )
 
-            status.write("🗂️ Sorting data")
+            status.write("📊 Formatting results")
             col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "issue_tags", "url", "weighted_tone", "weighted_article_count",
                     "Infrastructure", "Data", "AI", "Security", "Collaboration", "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing", "related_products"]
             sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
