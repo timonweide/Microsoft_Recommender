@@ -16,6 +16,14 @@ import cohere
 # --- Load cleaned data ---
 df = pd.read_csv("clean_data_model.csv")
 df['related_list'] = df['related_products'].apply(eval)
+issue_cols = [
+    "Infrastructure", "Data", "AI", "Security", "Collaboration",
+    "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing"
+]
+df["issue_tags"] = (
+    df[issue_cols]
+    .apply(lambda r: [c for c in issue_cols if r[c] == 1], axis=1)
+)
 
 # --- Get API keys ---
 NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
@@ -114,6 +122,7 @@ def find_similar_cases_full(new_row_df, top_n_products=5, top_k_cases=5):
             "region": row['region'],
             "employees": row['employees'],
             "related_list": row['related_list'],
+            "issue_tags": row['issue_tags'],
             "full_row": row.to_dict()
         })
     return results
@@ -229,6 +238,21 @@ if trigger:
         tag_inputs['Sustainability'], tag_inputs['Customer Experience'], tag_inputs['Supply Chain'], tag_inputs['Manufacturing'],
         model_full, preprocessor_full, item_features, product_names)
 
+    inputs_summary = {
+        "Company":               company_name or "—",
+        "Business need":         business_need,
+        "Industry":              industry,
+        "Region":                region,
+        "Employees":             employees,
+        "Weighted tone":         round(weighted_tone, 2),
+        "Weighted art. count":   round(weighted_article_count, 3),
+        "Issue tags selected":   ", ".join([t for t, v in tag_inputs.items() if v]) or "None"
+    }
+    inputs_df = (
+        pd.DataFrame.from_dict(inputs_summary, orient="index", columns=["Value"])
+        .rename_axis("")         # hides the index header row
+    )
+
     sim_cases = find_similar_cases_full(pd.DataFrame({
         'business_need': [business_need],
         'industry': [industry],
@@ -244,6 +268,10 @@ if trigger:
     with tab1:
         st.subheader("Top 5 Recommended Products")
         st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
+        st.markdown("### Input Summary")
+        with st.expander("View Input Parameters"):
+            st.markdown("These parameters were used to generate the recommendations:")
+            st.table(inputs_df)
 
     with tab2:
         col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "url", "weighted_tone", "weighted_article_count",
@@ -257,14 +285,12 @@ if trigger:
     with tab3:
         st.subheader("🎯 Sales Story Generator")
 
-        # Get first similar case to anchor story
         example_case = sim_cases[0]
         case_industry = example_case['industry']
         case_region = example_case['region']
         case_need = example_case['business_need']
         case_products = example_case['related_list']
 
-        # Optional ROI-style values by business need
         business_impact_map = {
             "Customer Engagement": "increase conversion by 15–30%",
             "Supply Chain Optimization": "reduce operational costs by up to 20%",
@@ -274,7 +300,6 @@ if trigger:
         }
         impact_sentence = business_impact_map.get(business_need, "achieve measurable business impact")
 
-        # Build sales story prompt
         summary_prompt = f"""
         You're a strategic Microsoft sales advisor writing a consultative pitch.
 
@@ -288,7 +313,6 @@ if trigger:
         Please write this as a short outreach email. No headings, just full text.
         """
 
-        # Call Cohere API
         try:
             co = cohere.Client(COHERE_API_KEY)
             response = co.generate(model='command-r-plus', prompt=summary_prompt, max_tokens=300)
@@ -296,7 +320,6 @@ if trigger:
         except Exception as e:
             summary = f"⚠️ Cohere API error: {str(e)}"
 
-        # Build final email
         email_txt = f"""Dear {company_name},\n\n{summary}\n\nBest regards,\nYour Microsoft Sales Team"""
 
         st.markdown("### ✉️ Suggested Outreach Email")
@@ -317,7 +340,6 @@ if trigger:
             href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
             st.markdown(href, unsafe_allow_html=True)
 
-        # === Industry News Summary ===
         st.markdown("---")
         st.subheader("📈 Industry Trends You Should Know")
 
