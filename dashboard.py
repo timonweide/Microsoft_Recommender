@@ -297,38 +297,39 @@ with st.sidebar:
     trigger = st.button("🚀 Generate Insights")
 
 # --- Main Content ---
+tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
+
 if trigger:
-    tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
 
 # Recommendations
-    progress = st.progress(0, text="Fetching company news…")
-
-    weighted_tone, weighted_article_count = get_company_news(company_name, df)
-
-    progress.progress(20, text="Calculating recommendations…")
-
-    recommendations = predict_from_inputs(business_need, industry, region, weighted_tone, weighted_article_count, employees,
-        tag_inputs['Infrastructure'], tag_inputs['Data'], tag_inputs['AI'], tag_inputs['Security'], tag_inputs['Collaboration'],
-        tag_inputs['Sustainability'], tag_inputs['Customer Experience'], tag_inputs['Supply Chain'], tag_inputs['Manufacturing'],
-        model_full, preprocessor_full, item_features, product_names)
-    
-    inputs_summary = {
-        "Company":               company_name or "—",
-        "Business need":         business_need,
-        "Industry":              industry,
-        "Region":                region,
-        "Employees":             employees,
-        "Weighted tone":         round(weighted_tone, 2),
-        "Weighted art. count":   round(weighted_article_count, 3),
-        "Issue tags selected":   ", ".join([t for t, v in tag_inputs.items() if v]) or "None"
-    }
-    
-    inputs_df = (
-        pd.DataFrame.from_dict(inputs_summary, orient="index", columns=["Value"])
-        .rename_axis("")
-    )
-
     with tab1:
+        with st.status("Generating recommendations...", expanded=True) as status:
+
+            status.write("🔍 Fetching company news")
+            weighted_tone, weighted_article_count = get_company_news(company_name, df)
+
+            status.write("♟️ Computing recommendations")
+            recommendations = predict_from_inputs(business_need, industry, region, weighted_tone, weighted_article_count, employees,
+                tag_inputs['Infrastructure'], tag_inputs['Data'], tag_inputs['AI'], tag_inputs['Security'], tag_inputs['Collaboration'],
+                tag_inputs['Sustainability'], tag_inputs['Customer Experience'], tag_inputs['Supply Chain'], tag_inputs['Manufacturing'],
+                model_full, preprocessor_full, item_features, product_names)
+            inputs_summary = {
+                "Company":               company_name or "—",
+                "Business need":         business_need,
+                "Industry":              industry,
+                "Region":                region,
+                "Employees":             employees,
+                "Weighted tone":         round(weighted_tone, 2),
+                "Weighted art. count":   round(weighted_article_count, 3),
+                "Issue tags selected":   ", ".join([t for t, v in tag_inputs.items() if v]) or "None"
+            }
+            inputs_df = (
+                pd.DataFrame.from_dict(inputs_summary, orient="index", columns=["Value"])
+                .rename_axis("")
+            )
+
+            status.update(label="All done!", state="complete")
+
         st.subheader("Top 5 Recommended Products")
         st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
         with st.expander("View Input Parameters"):
@@ -337,42 +338,50 @@ if trigger:
 
 
 # Similar Cases
-    progress.progress(40, text="Finding similar cases…")
-
-    sim_cases = find_similar_cases_full(pd.DataFrame({
-        'business_need': [business_need],
-        'industry': [industry],
-        'region': [region],
-        'weighted_tone': [weighted_tone],
-        'weighted_article_count': [weighted_article_count],
-        'employees': [employees],
-        **{tag: [tag_inputs[tag]] for tag in tags}
-    }))
-
     with tab2:
-        col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "url", "weighted_tone", "weighted_article_count",
+        with st.status("Finding similar cases...", expanded=True) as status:
+            
+            status.write("🗂️ Looking up similar cases")
+            sim_cases = find_similar_cases_full(pd.DataFrame({
+                'business_need': [business_need],
+                'industry': [industry],
+                'region': [region],
+                'weighted_tone': [weighted_tone],
+                'weighted_article_count': [weighted_article_count],
+                'employees': [employees],
+                **{tag: [tag_inputs[tag]] for tag in tags}
+            }))
+
+            status.write("🗂️ Sorting data")
+            col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "url", "weighted_tone", "weighted_article_count",
                     "Infrastructure", "Data", "AI", "Security", "Collaboration", "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing", "related_products"]
+            sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
+            sim_df = sim_df[col_order]
+
+            status.update(label="All done!", state="complete")
+        
         st.subheader("Most Similar Use Cases")
-        sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
-        sim_df = sim_df[col_order]
         st.dataframe(sim_df)
 
 # Sales Pitch
-    progress.progress(60, text="Drafting outreach email…")
-
-    email_txt = generate_email(sim_cases, recommendations, business_need, industry, region)
-
-    progress.progress(80, text="Fetching industry trends…")
-
-    news_headlines, news_text = get_industry_news(industry)
-    news_headlines, trends = generate_trends(news_headlines, news_text, industry)
-
-    progress.progress(100, text="Done! 🎉")
-
     with tab3:
+        with st.status("Generating sales pitch...", expanded=True) as status:
+
+            status.write("✉️ Generating outreach email")
+            email_txt = generate_email(sim_cases, recommendations, business_need, industry, region)
+
+            status.write("📰 Fetching industry news")
+            news_headlines, news_text = get_industry_news(industry)
+
+            status.write("📈 Analyzing trends")
+            news_headlines, trends = generate_trends(news_headlines, news_text, industry)
+
+            status.update(label="All done!", state="complete")
+
+    
         st.subheader("🎯 Sales Story Generator")
 
-        st.markdown("### ✉️ Suggested Outreach Email")
+        st.markdown("✉️ Suggested Outreach Email")
         st.text_area("Generated Email", email_txt, height=250)
 
         st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
