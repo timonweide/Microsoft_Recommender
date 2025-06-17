@@ -283,6 +283,8 @@ st.markdown("This tool helps Microsoft sales teams recommend products based on c
 
 # --- Sidebar ---
 with st.sidebar:
+    st.subheader("Input Parameters")
+
     region_order = ['North America', 'South America', 'Nordics', 'Western Europe', 'Central Europe','Eastern Europe',
                     'Southern Europe', 'Africa', 'Middle East', 'East Asia', 'Southeast Asia',  'South Asia', 'Oceania']
     employees_order = ['1-49 employees', '50-999 employees', '1,000-9,999 employees', '10,000+ employees']
@@ -296,11 +298,11 @@ with st.sidebar:
     tags = ['Infrastructure', 'Data', 'AI', 'Security', 'Collaboration', 'Sustainability', 'Customer Experience', 'Supply Chain', 'Manufacturing']
     tag_inputs = {tag: int(st.checkbox(tag)) for tag in tags}
     st.markdown("---")
+    n_recs = st.slider("No. of recommended products", min_value=1,  max_value=10,  value=5,  step=1)
+    st.markdown("---")
     tone = st.selectbox("Email Style", ["Formal", "Playful", "Concise"])
     st.markdown("---")
-    n_recs = st.slider("How many products should we recommend?", min_value=1,  max_value=10,  value=5,  step=1)
-    st.markdown("---")
-    trigger = st.button("🚀 Generate Insights")
+    trigger = st.button("🚀 Generate Insights", use_container_width=True)
 
 # --- Main Content ---
 tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 Sales Pitch"])
@@ -377,8 +379,7 @@ if trigger:
             )
 
             status.write("📊 Formatting results")
-            col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "issue_tags", "url", "weighted_tone", "weighted_article_count",
-                    "Infrastructure", "Data", "AI", "Security", "Collaboration", "Sustainability", "Customer Experience", "Supply Chain", "Manufacturing", "related_products"]
+            col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "issue_tags", "url", "weighted_tone", "weighted_article_count"]
             sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
             sim_df = sim_df[col_order]
 
