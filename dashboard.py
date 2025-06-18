@@ -308,9 +308,12 @@ if trigger:
         'region': region,
         'employees': employees,
         'weighted_tone': 0.0,  # Placeholder, will be updated after fetching news
-        'weighted_article_count': 0.0,  # Placeholder, will be updated after fetching news,
-        **tag_inputs
+        'weighted_article_count': 0.0  # Placeholder, will be updated after fetching news,
     }])
+    new_row_df["issue_tags"] = (
+        new_row_df[tag_inputs.keys()]
+        .apply(lambda r: [c for c in issue_cols if r[c] == 1], axis=1)
+    )
 
 # Recommendations
     with tab1:
