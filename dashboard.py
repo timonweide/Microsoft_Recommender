@@ -15,6 +15,7 @@ import cohere
 
 # --- Preparation ---
 df = pd.read_csv("clean_data_model.csv")
+product_descriptions = pd.read_csv("product_descriptions_cleaned.csv")
 df['related_list'] = df['related_products'].apply(eval)
 issue_cols = [
     "Infrastructure", "Data", "AI", "Security", "Collaboration",
@@ -400,12 +401,19 @@ if trigger:
         with st.status("Generating sales pitch...", expanded=False) as status:
 
             status.write("✉️ Generating outreach email")
-            email_txt, prompt = generate_email(
+            email_content, prompt = generate_email(
                 new_row_df=new_row_df,
                 predicted_products=predicted_products,
                 sim_df=sim_cases,
                 tone=tone.lower()
             )
+            email_txt = f"""
+            Dear {company_name} Team,\n
+            \n
+            {email_content}\n
+            \n
+            Best regards,\n
+            Your Microsoft Sales Team"""
 
             status.write("📰 Fetching industry news")
             news_headlines, news_text = get_industry_news(industry)
