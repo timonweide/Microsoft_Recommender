@@ -219,12 +219,12 @@ def get_company_news(company_name, df):
     
     return weighted_tone, weighted_article_count
 
-def email_to_pdf_bytes(email_text):
+def to_pdf_bytes(text):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
-    for line in email_text.splitlines():
+    for line in text.splitlines():
         pdf.multi_cell(0, 10, line)
 
     return pdf.output(dest="S").encode("latin-1")
@@ -372,6 +372,8 @@ if trigger:
         .apply(lambda r: [c for c in issue_cols if r[c] == 1], axis=1)
     )
 
+    file_company_name = (company_name or "company").strip().lower().replace(" ", "_")
+
 # Recommendations
     with tab1:
         with st.status("Generating recommendations...", expanded=False) as status:
@@ -473,7 +475,6 @@ Dear {company_name} Team,\n
 Best regards,\n
 Your Microsoft Sales Team
             """
-            email_pdf = email_to_pdf_bytes(email_txt)
 
             status.write("📰 Fetching industry news")
             news_headlines, news_text = get_industry_news(industry)
@@ -484,11 +485,29 @@ Your Microsoft Sales Team
             status.update(label="All done!", state="complete")
 
         st.subheader("📑 Project Plan")
+    
         st.markdown("Suggested Project Plan")
-
-        st.markdown(f"<div style='line-height: 1.6'>{project_plan_content.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
+        st.text_area("Project Plan", project_plan_content, height=250)
         with st.expander("Prompt Used", expanded=False):
             st.code(project_plan_prompt, language=None)
+
+        col_txt, col_pdf = st.columns(2)
+        with col_txt:
+            st.download_button(
+                "📄 Download Project Plan (.txt)",
+                data=project_plan_content,
+                file_name=f"{file_company_name}_project_plan.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+        with col_pdf:
+            st.download_button(
+                "📑 Download Project Plan (.pdf)",
+                data=to_pdf_bytes(project_plan_content),
+                file_name=f"{file_company_name}_project_plan.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
 
         st.markdown("---")
         st.subheader("✉️ Outreach Proposal")
@@ -499,7 +518,6 @@ Your Microsoft Sales Team
             st.code(email_prompt, language=None)
 
         col_txt, col_pdf = st.columns(2)
-        file_company_name = (company_name or "company").strip().lower().replace(" ", "_")
         with col_txt:
             st.download_button(
                 "📄 Download Email (.txt)",
@@ -511,7 +529,7 @@ Your Microsoft Sales Team
         with col_pdf:
             st.download_button(
                 "📑 Download Email (.pdf)",
-                data=email_pdf,
+                data=to_pdf_bytes(email_txt),
                 file_name=f"{file_company_name}_sales_email.pdf",
                 mime="application/pdf",
                 use_container_width=True
@@ -523,6 +541,7 @@ Your Microsoft Sales Team
         st.markdown("Key Industry Trends:")
         st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
 
+        st.markdown("")
         st.markdown("Top Headlines:")
         for hl in news_headlines:
             st.markdown(hl)
