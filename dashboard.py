@@ -385,54 +385,52 @@ if trigger:
 
 # Sales Pitch
     with tab3:
-        llm = st.button("Generate AI Sales Pitch", use_container_width=True)
-        if llm:
-            with st.status("Generating sales pitch...", expanded=False) as status:
+        with st.status("Generating sales pitch...", expanded=False) as status:
 
-                status.write("✉️ Generating outreach email")
-                email_txt, prompt = generate_email(
-                    new_row_df=new_row_df,
-                    predicted_products=predicted_products,
-                    sim_df=sim_df,
-                    tone=tone.lower()
-                )
+            status.write("✉️ Generating outreach email")
+            email_txt, prompt = generate_email(
+                new_row_df=new_row_df,
+                predicted_products=predicted_products,
+                sim_df=sim_df,
+                tone=tone.lower()
+            )
 
-                status.write("📰 Fetching industry news")
-                news_headlines, news_text = get_industry_news(industry)
+            status.write("📰 Fetching industry news")
+            news_headlines, news_text = get_industry_news(industry)
 
-                status.write("📈 Analyzing trends")
-                news_headlines, trends = generate_trends(news_headlines, news_text, industry)
+            status.write("📈 Analyzing trends")
+            news_headlines, trends = generate_trends(news_headlines, news_text, industry)
 
-                status.update(label="All done!", state="complete")
+            status.update(label="All done!", state="complete")
 
-    
-            st.subheader("🎯 Sales Story Generator")
 
-            st.markdown("✉️ Suggested Outreach Email")
-            st.text_area("Generated Email", email_txt, height=250)
-            with st.expander("Prompt Used", expanded=False):
-                st.code(prompt, language="python")
+        st.subheader("🎯 Sales Story Generator")
 
-            st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
+        st.markdown("✉️ Suggested Outreach Email")
+        st.text_area("Generated Email", email_txt, height=250)
+        with st.expander("Prompt Used", expanded=False):
+            st.code(prompt, language="python")
 
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", size=12)
-            for line in email_txt.split('\n'):
-                pdf.multi_cell(0, 10, line)
-            pdf.output("sales_email.pdf")
-            with open("sales_email.pdf", "rb") as f:
-                pdf_data = f.read()
-                b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
-                href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
-                st.markdown(href, unsafe_allow_html=True)
+        st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
 
-            st.markdown("---")
-            st.subheader("📈 Industry Trends You Should Know")
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        for line in email_txt.split('\n'):
+            pdf.multi_cell(0, 10, line)
+        pdf.output("sales_email.pdf")
+        with open("sales_email.pdf", "rb") as f:
+            pdf_data = f.read()
+            b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+            href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
+            st.markdown(href, unsafe_allow_html=True)
 
-            st.markdown("**📰 Top Headlines:**")
-            for hl in news_headlines:
-                st.markdown(hl)
+        st.markdown("---")
+        st.subheader("📈 Industry Trends You Should Know")
 
-            st.markdown("**🧠 Key Industry Trends:**")
-            st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
+        st.markdown("**📰 Top Headlines:**")
+        for hl in news_headlines:
+            st.markdown(hl)
+
+        st.markdown("**🧠 Key Industry Trends:**")
+        st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
