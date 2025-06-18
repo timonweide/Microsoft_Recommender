@@ -18,6 +18,8 @@ import cohere
 df = pd.read_csv("clean_data_model.csv")
 product_descriptions = pd.read_csv("clean_product_descriptions.csv")
 
+st.markdown(product_descriptions.head())
+
 # --- Preparation ---
 df['related_list'] = df['related_products'].apply(eval)
 issue_cols = [
