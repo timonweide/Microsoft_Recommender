@@ -406,33 +406,33 @@ if trigger:
                 status.update(label="All done!", state="complete")
 
     
-        st.subheader("🎯 Sales Story Generator")
+            st.subheader("🎯 Sales Story Generator")
 
-        st.markdown("✉️ Suggested Outreach Email")
-        st.text_area("Generated Email", email_txt, height=250)
-        with st.expander("Prompt Used", expanded=False):
-            st.code(prompt, language="python")
+            st.markdown("✉️ Suggested Outreach Email")
+            st.text_area("Generated Email", email_txt, height=250)
+            with st.expander("Prompt Used", expanded=False):
+                st.code(prompt, language="python")
 
-        st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
+            st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
 
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        for line in email_txt.split('\n'):
-            pdf.multi_cell(0, 10, line)
-        pdf.output("sales_email.pdf")
-        with open("sales_email.pdf", "rb") as f:
-            pdf_data = f.read()
-            b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
-            href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
-            st.markdown(href, unsafe_allow_html=True)
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=12)
+            for line in email_txt.split('\n'):
+                pdf.multi_cell(0, 10, line)
+            pdf.output("sales_email.pdf")
+            with open("sales_email.pdf", "rb") as f:
+                pdf_data = f.read()
+                b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+                href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
+                st.markdown(href, unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.subheader("📈 Industry Trends You Should Know")
+            st.markdown("---")
+            st.subheader("📈 Industry Trends You Should Know")
 
-        st.markdown("**📰 Top Headlines:**")
-        for hl in news_headlines:
-            st.markdown(hl)
+            st.markdown("**📰 Top Headlines:**")
+            for hl in news_headlines:
+                st.markdown(hl)
 
-        st.markdown("**🧠 Key Industry Trends:**")
-        st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
+            st.markdown("**🧠 Key Industry Trends:**")
+            st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
