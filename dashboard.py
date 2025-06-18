@@ -7,6 +7,7 @@ from lightfm import LightFM
 from sklearn.neighbors import NearestNeighbors
 from scipy.sparse import csr_matrix
 import requests
+import io
 from io import StringIO
 from datetime import datetime
 from fpdf import FPDF
@@ -213,6 +214,18 @@ def get_company_news(company_name, df):
             )
     
     return weighted_tone, weighted_article_count
+
+def email_to_pdf_bytes(email_text):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
+    for line in email_text.splitlines():
+        pdf.multi_cell(0, 10, line)
+
+    buffer = io.BytesIO()
+    pdf.output(buffer)
+    return buffer.getvalue()
 
 def ask_llm(prompt, model='command-r-plus', max_tokens=300):
     try:
@@ -421,6 +434,9 @@ if trigger:
             Best regards,\n
             Your Microsoft Sales Team"""
 
+            status.write("📄 Converting email to PDF")
+            pdf_bytes = email_to_pdf_bytes(email_txt)
+
             status.write("📰 Fetching industry news")
             news_headlines, news_text = get_industry_news(industry)
 
@@ -437,19 +453,23 @@ if trigger:
         with st.expander("Prompt Used", expanded=False):
             st.code(email_prompt, language=None)
 
-        st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
-
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        for line in email_txt.split('\n'):
-            pdf.multi_cell(0, 10, line)
-        pdf.output("sales_email.pdf")
-        with open("sales_email.pdf", "rb") as f:
-            pdf_data = f.read()
-            b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
-            href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="sales_email.pdf">Download Email (.pdf)</a>'
-            st.markdown(href, unsafe_allow_html=True)
+        col_txt, col_pdf = st.columns(2)
+        with col_txt:
+            st.download_button(
+                "📄 Download Email (.txt)",
+                data=email_txt,
+                file_name=f"{company_name}_sales_email.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+        with col_pdf:
+            st.download_button(
+                "📑 Download Email (.pdf)",
+                data=pdf_bytes,
+                file_name=f"{company_name}_sales_email.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
 
         st.markdown("---")
         st.subheader("📈 Industry Trends You Should Know")
