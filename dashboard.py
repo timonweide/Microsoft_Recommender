@@ -457,11 +457,12 @@ if trigger:
             st.code(email_prompt, language=None)
 
         col_txt, col_pdf = st.columns(2)
+        file_company_name = (company_name or "company").strip().lower().replace(" ", "_")
         with col_txt:
             st.download_button(
                 "📄 Download Email (.txt)",
                 data=email_txt,
-                file_name=f"{company_name.to_lower()}_sales_email.txt",
+                file_name=f"{file_company_name}_sales_email.txt",
                 mime="text/plain",
                 use_container_width=True
             )
@@ -469,7 +470,7 @@ if trigger:
             st.download_button(
                 "📑 Download Email (.pdf)",
                 data=pdf_bytes,
-                file_name=f"{company_name.to_lower()}_sales_email.pdf",
+                file_name=f"{file_company_name}_sales_email.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
