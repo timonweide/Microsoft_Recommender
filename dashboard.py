@@ -31,6 +31,10 @@ df["issue_tags"] = (
 region_order = ['North America', 'South America', 'Nordics', 'Western Europe', 'Central Europe','Eastern Europe',
                     'Southern Europe', 'Africa', 'Middle East', 'East Asia', 'Southeast Asia',  'South Asia', 'Oceania']
 employees_order = ['1-49 employees', '50-999 employees', '1,000-9,999 employees', '10,000+ employees']
+DESC_LOOKUP = dict(
+    zip(product_descriptions["related_products"],
+        product_descriptions["descriptions"])
+)
 
 # --- Get API keys ---
 NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
@@ -359,13 +363,10 @@ if trigger:
             )
             predicted_products = [p for p, _ in recommendations]
 
-            for i, (product, score) in enumerate(recommendations):
-                if product in product_descriptions['related_products'].values:
-                    desc = product_descriptions.loc[product_descriptions['related_products'] == product, 'descriptions'].values[0]
-                    recommendations[i] = (product, desc, score)
-                else:
-                    desc = "No description available"
-                    recommendations[i] = (product, desc, score)
+            recommendations = [
+                (p, DESC_LOOKUP.get(p, "No description available"), score)
+                for p, score in recommendations
+            ]
 
             inputs_summary = {
                 "Company":               company_name or "—",
@@ -385,7 +386,8 @@ if trigger:
             status.update(label="All done!", state="complete")
 
         st.subheader(f"Top {n_recs} Recommended Products")
-        st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
+        st.dataframe(
+            pd.DataFrame(recommendations, columns=["Product", "Description", "Score"]))
         with st.expander("View Input Parameters"):
             st.table(inputs_df)
 
