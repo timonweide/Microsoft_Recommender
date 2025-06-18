@@ -69,7 +69,7 @@ model_full.fit(
     num_threads=4
 )
 
-# --- Helpers ---
+# --- Helper Functions ---
 def predict_from_inputs(
     new_row_df, model,
     preprocessor, item_features,
@@ -211,7 +211,7 @@ def get_company_news(company_name, df):
     return weighted_tone, weighted_article_count
 
 def generate_email(sim_cases, recommendations, business_need, industry, region):
-    example_case = sim_cases[0]
+    example_case = sim_cases
     case_industry = example_case['industry']
     case_region = example_case['region']
     case_need = example_case['business_need']
@@ -344,8 +344,8 @@ if trigger:
                 "Industry":              industry,
                 "Region":                region,
                 "Employees":             employees,
-                "Weighted tone":         round(weighted_tone, 2),
-                "Weighted art. count":   round(weighted_article_count, 3),
+                "Weighted tone":         weighted_tone,
+                "Weighted art. count":   weighted_article_count,
                 "Issue tags selected":   ", ".join([t for t, v in tag_inputs.items() if v]) or "None"
             }
             inputs_df = (
