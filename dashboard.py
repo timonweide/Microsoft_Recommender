@@ -240,6 +240,37 @@ def ask_llm(prompt, model='command-r-plus', max_tokens=300):
         return response.generations[0].text.strip()
     except Exception as e:
         return f"⚠️ Cohere API error: {str(e)}"
+    
+def generate_project_plan(new_row_df, recommendations_df):
+    company_name = new_row_df['company_name'].values[0]
+    business_need = new_row_df['business_need'].values[0]
+    industry = new_row_df['industry'].values[0]
+    region = new_row_df['region'].values[0]
+    employees = new_row_df['employees'].values[0]
+    issues = new_row_df['issue_tags'].values[0]
+
+    issues_str = ", ".join(issues) if isinstance(issues, list) else issues
+    product_descriptions_str = "\n".join([f"- {p}: {d}" for p, d in zip(recommendations_df['Product'], recommendations_df['Description'])])
+
+    prompt = f"""
+    You're a Microsoft sales advisor writing a project plan for a potential client.
+    
+    1. For each of the recommended Microsoft products below, use the descriptions to show how they can help {company_name} with their {business_need} needs in the {industry} industry in {region} and tackle their issues.
+    
+    Issues:
+    {issues_str}
+    
+    Product Descriptions:
+    {product_descriptions_str}
+
+    2. Use the information you have to create a project plan that outlines the architecture of the solution, the expected outcomes, and how it will help {company_name} achieve their business goals.
+
+    3. Create a roadmap for the implementation of the solution, including key milestones and deliverables.
+    """.strip()
+
+    project_plan_content = ask_llm(prompt, max_tokens=500)
+    
+    return project_plan_content, prompt
 
 def generate_email(new_row_df, predicted_products, sim_df, tone):
     company_name = new_row_df['company_name'].values[0]
@@ -365,6 +396,7 @@ if trigger:
                 (p, DESC_LOOKUP.get(p, "No description available"), score)
                 for p, score in recommendations
             ]
+            recommendations_df = pd.DataFrame(recommendations, columns=["Product", "Description", "Score"])
 
             inputs_summary = {
                 "Company":               company_name or "—",
@@ -384,11 +416,9 @@ if trigger:
             status.update(label="All done!", state="complete")
 
         st.subheader(f"Top {n_recs} Recommended Products")
-        st.dataframe(
-            pd.DataFrame(recommendations, columns=["Product", "Description", "Score"]))
+        st.dataframe(recommendations_df)
         with st.expander("View Input Parameters"):
             st.table(inputs_df)
-
 
 # Similar Cases
     with tab2:
@@ -422,6 +452,12 @@ if trigger:
     with tab3:
         with st.status("Generating sales pitch...", expanded=False) as status:
 
+            status.write("📑 Creating project plan")
+            project_plan_content, project_plan_prompt = generate_project_plan(
+                new_row_df=new_row_df,
+                recommendations_df=recommendations_df
+            )
+
             status.write("✉️ Generating outreach email")
             email_content, email_prompt = generate_email(
                 new_row_df=new_row_df,
@@ -430,15 +466,14 @@ if trigger:
                 tone=tone.lower()
             )
             email_txt = f"""
-            Dear {company_name} Team,\n
-            \n
-            {email_content}\n
-            \n
-            Best regards,\n
-            Your Microsoft Sales Team"""
-
-            status.write("📄 Converting email to PDF")
-            pdf_bytes = email_to_pdf_bytes(email_txt)
+Dear {company_name} Team,\n
+\n
+{email_content}\n
+\n
+Best regards,\n
+Your Microsoft Sales Team
+            """
+            email_pdf = email_to_pdf_bytes(email_txt)
 
             status.write("📰 Fetching industry news")
             news_headlines, news_text = get_industry_news(industry)
@@ -448,10 +483,17 @@ if trigger:
 
             status.update(label="All done!", state="complete")
 
+        st.subheader("📑 Project Plan")
+        st.markdown("Suggested Project Plan")
 
-        st.subheader("🎯 Sales Story Generator")
+        st.markdown(f"<div style='line-height: 1.6'>{project_plan_content.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
+        with st.expander("Prompt Used", expanded=False):
+            st.code(project_plan_prompt, language=None)
 
-        st.markdown("✉️ Suggested Outreach Email")
+        st.markdown("---")
+        st.subheader("✉️ Outreach Proposal")
+
+        st.markdown("Suggested Outreach Email")
         st.text_area("Generated Email", email_txt, height=250)
         with st.expander("Prompt Used", expanded=False):
             st.code(email_prompt, language=None)
@@ -469,21 +511,20 @@ if trigger:
         with col_pdf:
             st.download_button(
                 "📑 Download Email (.pdf)",
-                data=pdf_bytes,
+                data=email_pdf,
                 file_name=f"{file_company_name}_sales_email.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
 
         st.markdown("---")
-        st.subheader("📈 Industry Trends You Should Know")
+        st.subheader("📈 Industry Trends")
 
-        st.markdown("**🧠 Key Industry Trends:**")
+        st.markdown("Key Industry Trends:")
         st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
 
-        st.markdown("**📰 Top Headlines:**")
+        st.markdown("Top Headlines:")
         for hl in news_headlines:
             st.markdown(hl)
-
         with st.expander("Prompt Used", expanded=False):
             st.code(trends_prompt, language=None)
