@@ -302,16 +302,22 @@ tab1, tab2, tab3 = st.tabs(["📌 Recommendations", "📂 Similar Cases", "🎯 
 
 if trigger:
     new_row_df = pd.DataFrame([{
-        'company_name': company_name,
-        'business_need': business_need,
-        'industry': industry,
-        'region': region,
-        'employees': employees,
-        'weighted_tone': 0.0,  # Placeholder, will be updated after fetching news
-        'weighted_article_count': 0.0  # Placeholder, will be updated after fetching news,
+        "company_name":            company_name,
+        "business_need":           business_need,
+        "industry":                industry,
+        "region":                  region,
+        "employees":               employees,
+        "weighted_tone":           0.0,  # Placeholder
+        "weighted_article_count":  0.0,  # Placeholder
+        **tag_inputs
     }])
+
+    for col in issue_cols:
+        if col not in new_row_df.columns:
+            new_row_df[col] = 0
+
     new_row_df["issue_tags"] = (
-        new_row_df[tag_inputs.keys()]
+        new_row_df[issue_cols]
         .apply(lambda r: [c for c in issue_cols if r[c] == 1], axis=1)
     )
 
@@ -352,7 +358,7 @@ if trigger:
 
             status.update(label="All done!", state="complete")
 
-        st.subheader("Top 5 Recommended Products")
+        st.subheader(f"Top {n_recs} Recommended Products")
         st.dataframe(pd.DataFrame(recommendations, columns=["Product", "Score"]))
         with st.expander("View Input Parameters"):
             st.table(inputs_df)
