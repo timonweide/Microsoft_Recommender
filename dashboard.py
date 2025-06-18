@@ -247,8 +247,10 @@ def generate_email(new_row_df, predicted_products, sim_df, tone):
     1. Start with a short sentence explaining a typical challenge for a company in the {industry} sector with issues in {issues_str} and a need for {business_need} in {region}.
     2. Present Microsoft's recommended products: {products_str}.
     3. Summarize how these products address the issues {issues_str} and lead to qualitative and/or quantitative improvements of {business_need}.
-    4. Include a brief story related to similar cases without naming the companies: {sim_cases_str}.
+    4. Include a brief story of the most relevant similar case and the results Microsoft achieved for that company, but don't name it: {sim_cases_str}.
     5. Wrap up with a positive outlook for digital transformation when partnering with Microsoft.
+
+    Please return only the email content without any additional text or explanations.
     """.strip()
 
     email_content = ask_llm(prompt, max_tokens=500)
@@ -419,7 +421,7 @@ if trigger:
         st.markdown("✉️ Suggested Outreach Email")
         st.text_area("Generated Email", email_txt, height=250)
         with st.expander("Prompt Used", expanded=False):
-            st.code(prompt, language="python")
+            st.code(prompt, language="markdown")
 
         st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
 
@@ -438,9 +440,9 @@ if trigger:
         st.markdown("---")
         st.subheader("📈 Industry Trends You Should Know")
 
+        st.markdown("**🧠 Key Industry Trends:**")
+        st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
+
         st.markdown("**📰 Top Headlines:**")
         for hl in news_headlines:
             st.markdown(hl)
-
-        st.markdown("**🧠 Key Industry Trends:**")
-        st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
