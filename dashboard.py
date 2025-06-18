@@ -359,10 +359,13 @@ if trigger:
             )
             predicted_products = [p for p, _ in recommendations]
 
-            recommendations = [
-                (score, p, product_descriptions[product_descriptions['product_name'] == p]['description'].values[0])
-                for p, score in recommendations
-            ]
+            for i, (product, score) in enumerate(recommendations):
+                if product in product_descriptions['related_products'].values:
+                    desc = product_descriptions.loc[product_descriptions['related_products'] == product, 'descriptions'].values[0]
+                    recommendations[i] = (product, desc, score)
+                else:
+                    desc = "No description available"
+                    recommendations[i] = (product, desc, score)
 
             inputs_summary = {
                 "Company":               company_name or "—",
@@ -458,7 +461,7 @@ if trigger:
             st.download_button(
                 "📄 Download Email (.txt)",
                 data=email_txt,
-                file_name=f"{company_name}_sales_email.txt",
+                file_name=f"{company_name.to_lower()}_sales_email.txt",
                 mime="text/plain",
                 use_container_width=True
             )
@@ -466,7 +469,7 @@ if trigger:
             st.download_button(
                 "📑 Download Email (.pdf)",
                 data=pdf_bytes,
-                file_name=f"{company_name}_sales_email.pdf",
+                file_name=f"{company_name.to_lower()}_sales_email.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
