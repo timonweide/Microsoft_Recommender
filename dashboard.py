@@ -395,7 +395,7 @@ if trigger:
         with st.status("Generating sales pitch...", expanded=False) as status:
 
             status.write("✉️ Generating outreach email")
-            email_txt = generate_email(sim_cases, recommendations, business_need, industry, region)
+            email_txt = generate_email(sim_cases[0], recommendations, business_need, industry, region)
 
             status.write("📰 Fetching industry news")
             news_headlines, news_text = get_industry_news(industry)
