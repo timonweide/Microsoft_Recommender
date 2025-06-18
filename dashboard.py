@@ -400,7 +400,7 @@ if trigger:
             email_txt, prompt = generate_email(
                 new_row_df=new_row_df,
                 predicted_products=predicted_products,
-                sim_df=sim_df,
+                sim_df=sim_cases,
                 tone=tone.lower()
             )
 
