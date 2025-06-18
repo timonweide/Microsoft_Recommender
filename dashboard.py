@@ -13,9 +13,11 @@ from fpdf import FPDF
 import base64
 import cohere
 
-# --- Preparation ---
+# --- Load data ---
 df = pd.read_csv("clean_data_model.csv")
-product_descriptions = pd.read_csv("product_descriptions_cleaned.csv")
+product_descriptions = pd.read_csv("clean_product_descriptions.csv")
+
+# --- Preparation ---
 df['related_list'] = df['related_products'].apply(eval)
 issue_cols = [
     "Infrastructure", "Data", "AI", "Security", "Collaboration",
@@ -251,6 +253,7 @@ def generate_email(new_row_df, predicted_products, sim_df, tone):
     4. Include a brief story of the most relevant similar case and the results Microsoft achieved for that company, but don't name it: {sim_cases_str}.
     5. Wrap up with a positive outlook for digital transformation when partnering with Microsoft.
 
+    Write the email in paragraphs without headings
     Please return only the email content without any additional text or explanations.
     """.strip()
 
@@ -263,15 +266,13 @@ def generate_trends(news_headlines, news_text, industry):
         
         prompt = f"""
         Please extract exactly three current trends from the following news descriptions related to the {industry} industry.
-
         Format your response as a numbered list with short, clear sentences. Each point should be no longer than 2 lines:
-
         {news_text}
         """.strip()
 
         trends = ask_llm(prompt, max_tokens=90)
 
-        return news_headlines, trends
+        return news_headlines, trends, prompt
         
     else:
         return "No recent news available for this industry."
@@ -345,6 +346,11 @@ if trigger:
             )
             predicted_products = [p for p, _ in recommendations]
 
+            recommendations = [
+                (score, p, product_descriptions[product_descriptions['product_name'] == p]['description'].values[0])
+                for p, score in recommendations
+            ]
+
             inputs_summary = {
                 "Company":               company_name or "—",
                 "Business need":         business_need,
@@ -401,7 +407,7 @@ if trigger:
         with st.status("Generating sales pitch...", expanded=False) as status:
 
             status.write("✉️ Generating outreach email")
-            email_content, prompt = generate_email(
+            email_content, email_prompt = generate_email(
                 new_row_df=new_row_df,
                 predicted_products=predicted_products,
                 sim_df=sim_cases,
@@ -419,7 +425,7 @@ if trigger:
             news_headlines, news_text = get_industry_news(industry)
 
             status.write("📈 Analyzing trends")
-            news_headlines, trends = generate_trends(news_headlines, news_text, industry)
+            news_headlines, trends, trends_prompt = generate_trends(news_headlines, news_text, industry)
 
             status.update(label="All done!", state="complete")
 
@@ -429,7 +435,7 @@ if trigger:
         st.markdown("✉️ Suggested Outreach Email")
         st.text_area("Generated Email", email_txt, height=250)
         with st.expander("Prompt Used", expanded=False):
-            st.code(prompt, language="markdown")
+            st.code(email_prompt, language=None)
 
         st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
 
@@ -454,3 +460,6 @@ if trigger:
         st.markdown("**📰 Top Headlines:**")
         for hl in news_headlines:
             st.markdown(hl)
+
+        with st.expander("Prompt Used", expanded=False):
+            st.code(trends_prompt, language=None)
