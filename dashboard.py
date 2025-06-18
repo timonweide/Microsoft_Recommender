@@ -131,6 +131,7 @@ def find_similar_cases_full(
             "employees":           row['employees'],
             "related_list":        row['related_list'],
             "issue_tags":          row['issue_tags'],
+            "company_name_cleaned": row.get("company_name_cleaned", row.get("company_name", "—")),
             "full_row":            row.to_dict()
         })
     return results
@@ -381,7 +382,7 @@ if trigger:
             )
 
             status.write("📊 Formatting results")
-            col_order=["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "issue_tags", "url", "weighted_tone", "weighted_article_count"]
+            col_order = ["similarity", "company_name_cleaned", "industry", "region", "employees", "business_need", "related_list", "issue_tags", "url", "weighted_tone", "weighted_article_count"]
             sim_df = pd.DataFrame([{**c, **c['full_row']} for c in sim_cases]).drop(columns=['full_row'])
             sim_df = sim_df[col_order]
 
