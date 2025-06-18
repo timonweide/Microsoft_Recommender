@@ -31,11 +31,6 @@ df["issue_tags"] = (
 region_order = ['North America', 'South America', 'Nordics', 'Western Europe', 'Central Europe','Eastern Europe',
                     'Southern Europe', 'Africa', 'Middle East', 'East Asia', 'Southeast Asia',  'South Asia', 'Oceania']
 employees_order = ['1-49 employees', '50-999 employees', '1,000-9,999 employees', '10,000+ employees']
-product_descriptions["related_products_clean"] = (
-    product_descriptions["related_products"]
-        .str.strip()
-        .str.lower()
-)
 DESC_LOOKUP = dict(
     zip(product_descriptions["related_products"],
         product_descriptions["descriptions"])
@@ -83,9 +78,6 @@ model_full.fit(
 )
 
 # --- Helper Functions ---
-def norm(s: str) -> str:
-    return s.strip().lower()
-
 def predict_from_inputs(
     new_row_df, model,
     preprocessor, item_features,
@@ -370,8 +362,8 @@ if trigger:
             predicted_products = [p for p, _ in recommendations]
 
             recommendations = [
-                (prod, DESC_LOOKUP.get(norm(prod), "No description available"), score)
-                for prod, score in recommendations
+                (p, DESC_LOOKUP.get(p, "No description available"), score)
+                for p, score in recommendations
             ]
 
             inputs_summary = {
