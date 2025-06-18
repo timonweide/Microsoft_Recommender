@@ -210,74 +210,68 @@ def get_company_news(company_name, df):
     
     return weighted_tone, weighted_article_count
 
-def generate_email(sim_cases, recommendations, business_need, industry, region):
-    example_case = sim_cases
-    case_industry = example_case['industry']
-    case_region = example_case['region']
-    case_need = example_case['business_need']
-    case_products = example_case['related_list']
-
-    business_impact_map = {
-        "Customer Engagement": "increase conversion by 15–30%",
-        "Supply Chain Optimization": "reduce operational costs by up to 20%",
-        "Workforce Productivity": "boost output per employee by 25%",
-        "Sustainability": "lower energy costs by 12–18%",
-        "Data Analytics": "accelerate insights generation by 40%"
-    }
-    impact_sentence = business_impact_map.get(business_need, "achieve measurable business impact")
-
-    summary_prompt = f"""
-    You're a strategic Microsoft sales advisor writing a consultative pitch.
-
-    1. Start with a short sentence explaining a **typical challenge** for a company in the {industry} sector with a need for {business_need.lower()} in {region}.
-    2. Present Microsoft's **recommended solutions**: {', '.join(p for p, _ in recommendations)}.
-    3. Summarize how these tools solve the problem and lead to outcomes like {impact_sentence}.
-    4. Include a brief **story from a similar case**: A company in the {case_industry} sector (also focused on {case_need}) benefited from: {', '.join(case_products)}.
-    5. Keep the tone persuasive but professional.
-    6. Wrap up with a positive outlook for digital transformation.
-
-    Please write this as a short outreach email. No headings, just full text.
-    """
-
+def ask_llm(prompt, model='command-r-plus', max_tokens=300):
     try:
         co = cohere.Client(COHERE_API_KEY)
-        response = co.generate(model='command-r-plus', prompt=summary_prompt, max_tokens=300)
-        summary = response.generations[0].text.strip()
+        response = co.generate(
+            model=model,
+            prompt=prompt,
+            max_tokens=max_tokens
+            )
+        return response.generations[0].text.strip()
     except Exception as e:
-        summary = f"⚠️ Cohere API error: {str(e)}"
+        return f"⚠️ Cohere API error: {str(e)}"
 
-    email_txt = f"""{summary}\n\nBest regards,\nYour Microsoft Sales Team"""
+def generate_email(new_row_df, predicted_products, sim_df, tone):
+    company_name = new_row_df['company_name'].values[0]
+    business_need = new_row_df['business_need'].values[0]
+    industry = new_row_df['industry'].values[0]
+    region = new_row_df['region'].values[0]
+    employees = new_row_df['employees'].values[0]
+    issues = new_row_df['issue_tags'].values[0]
 
-    return email_txt
+    issues_str = ", ".join(issues) if isinstance(issues, list) else issues
+    products_str = ", ".join(predicted_products)
+    sim_cases_str = "\n".join([f"- {c['company_name_cleaned']} ({c['industry']}, {c['region']}, {c['employees']}, {c['business_need']}, {c['related_list']}, {c['issue_tags']})" for c in sim_df])
+
+    prompt = f"""
+    You're a Microsoft sales advisor writing a {tone} and engaging sales pitch email to a potential client.
+    Convince {company_name} how Microsoft products can help with their {business_need} needs in the {industry} industry.
+
+    Tailor your arguments to the company's specific needs and challenges.
+    Highlight how the recommended Microsoft products can address the issues.
+    Base your arguments on how similar companies have successfully used these products without naming the companies.
+
+    The email should be structured as follows:
+    1. Start with a short sentence explaining a typical challenge for a company in the {industry} sector with issues in {issues_str} and a need for {business_need} in {region}.
+    2. Present Microsoft's recommended products: {products_str}.
+    3. Summarize how these products address the issues {issues_str} and lead to qualitative and/or quantitative improvements of {business_need}.
+    4. Include a brief story related to similar cases without naming the companies: {sim_cases_str}.
+    5. Wrap up with a positive outlook for digital transformation when partnering with Microsoft.
+    """.strip()
+
+    email_content = ask_llm(prompt, max_tokens=500)
+    
+    return email_content, prompt
+    
 
 def generate_trends(news_headlines, news_text, industry):
-    if news_text:
-        try:
-            news_summary_prompt = f"""
-            Please extract exactly three current trends from the following news descriptions related to the {industry} industry.
+    if news_text and news_headlines:
+        
+        prompt = f"""
+        Please extract exactly three current trends from the following news descriptions related to the {industry} industry.
 
-            Format your response as a numbered list with short, clear sentences. Each point should be no longer than 2 lines:
+        Format your response as a numbered list with short, clear sentences. Each point should be no longer than 2 lines:
 
-            {news_text}
-            """.strip()
+        {news_text}
+        """.strip()
 
-            try:
-                co = cohere.Client(COHERE_API_KEY)
-                news_response = co.generate(
-                    model='command-r-plus',
-                    prompt=news_summary_prompt,
-                    max_tokens=90,
-                    temperature=0.4
-                )
-                trends = news_response.generations[0].text.strip()
-            except Exception as e:
-                trends = f"⚠️ Cohere API error: {str(e)}"
-        except Exception as e:
-            trends = f"⚠️ Cohere summarization error: {str(e)}"
+        trends = ask_llm(prompt, max_tokens=90)
+
+        return news_headlines, trends
+        
     else:
-        trends = "No recent news available for this industry."
-
-    return news_headlines, trends
+        return "No recent news available for this industry."
 
 # --- UI ---
 st.set_page_config(page_title="Microsoft Product Recommender", layout="wide")
@@ -337,6 +331,7 @@ if trigger:
                 product_names=product_names,
                 top_n=n_recs
             )
+            predicted_products = [p for p, _ in recommendations]
 
             inputs_summary = {
                 "Company":               company_name or "—",
@@ -366,7 +361,6 @@ if trigger:
         with st.status("Finding similar cases...", expanded=False) as status:
             
             status.write("🗂️ Looking up similar cases")
-            predicted_products = [p for p, _ in recommendations]
             sim_cases = find_similar_cases_full(
                 new_row_df=new_row_df,
                 predicted_products=predicted_products,
@@ -395,7 +389,12 @@ if trigger:
         with st.status("Generating sales pitch...", expanded=False) as status:
 
             status.write("✉️ Generating outreach email")
-            email_txt = generate_email(sim_cases[0], recommendations, business_need, industry, region)
+            email_txt, prompt = generate_email(
+                new_row_df=new_row_df,
+                predicted_products=predicted_products,
+                sim_df=sim_df,
+                tone=tone.lower()
+            )
 
             status.write("📰 Fetching industry news")
             news_headlines, news_text = get_industry_news(industry)
@@ -410,6 +409,8 @@ if trigger:
 
         st.markdown("✉️ Suggested Outreach Email")
         st.text_area("Generated Email", email_txt, height=250)
+        with st.expander("Prompt Used", expanded=False):
+            st.code(prompt, language="python")
 
         st.download_button("Download Email (.txt)", email_txt, file_name="sales_email.txt")
 
