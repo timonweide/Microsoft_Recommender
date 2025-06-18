@@ -253,7 +253,6 @@ def generate_email(new_row_df, predicted_products, sim_df, tone):
     email_content = ask_llm(prompt, max_tokens=500)
     
     return email_content, prompt
-    
 
 def generate_trends(news_headlines, news_text, industry):
     if news_text and news_headlines:
@@ -386,23 +385,25 @@ if trigger:
 
 # Sales Pitch
     with tab3:
-        with st.status("Generating sales pitch...", expanded=False) as status:
+        llm = st.button("Generate AI Sales Pitch", use_container_width=True)
+        if llm:
+            with st.status("Generating sales pitch...", expanded=False) as status:
 
-            status.write("✉️ Generating outreach email")
-            email_txt, prompt = generate_email(
-                new_row_df=new_row_df,
-                predicted_products=predicted_products,
-                sim_df=sim_df,
-                tone=tone.lower()
-            )
+                status.write("✉️ Generating outreach email")
+                email_txt, prompt = generate_email(
+                    new_row_df=new_row_df,
+                    predicted_products=predicted_products,
+                    sim_df=sim_df,
+                    tone=tone.lower()
+                )
 
-            status.write("📰 Fetching industry news")
-            news_headlines, news_text = get_industry_news(industry)
+                status.write("📰 Fetching industry news")
+                news_headlines, news_text = get_industry_news(industry)
 
-            status.write("📈 Analyzing trends")
-            news_headlines, trends = generate_trends(news_headlines, news_text, industry)
+                status.write("📈 Analyzing trends")
+                news_headlines, trends = generate_trends(news_headlines, news_text, industry)
 
-            status.update(label="All done!", state="complete")
+                status.update(label="All done!", state="complete")
 
     
         st.subheader("🎯 Sales Story Generator")
