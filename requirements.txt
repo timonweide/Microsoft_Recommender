@@ -1,7 +1,3 @@
-setuptools==67.8.0
-wheel==0.42.0
-Cython==0.29.36
-
 streamlit==1.46.0
 pandas==2.3.0
 numpy==1.26.4
@@ -10,4 +6,5 @@ scikit-learn==1.6.1
 requests==2.32.4
 fpdf==1.7.2
 cohere==5.15.0
-lightfm==1.17
+
+lightfm @ git+https://github.com/lyst/lightfm@master
