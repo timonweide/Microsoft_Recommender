@@ -1,10 +1,10 @@
-streamlit==1.45.1
-pandas==2.3.0
-numpy==1.26.4
-scipy==1.10.1
-scikit-learn==1.7.0
+streamlit
+pandas
+numpy
+scipy
+scikit-learn
 requests
 fpdf
 cohere
 
-lightfm @ git+https://github.com/lyst/lightfm.git@master
+lightfm
