@@ -268,7 +268,7 @@ def generate_project_plan(new_row_df, recommendations_df):
     3. Create a roadmap for the implementation of the solution, including key milestones and deliverables.
     """.strip()
 
-    project_plan_content = ask_llm(prompt, max_tokens=1000)
+    project_plan_content = ask_llm(prompt, max_tokens=1500)
     
     return project_plan_content, prompt
 
@@ -498,9 +498,9 @@ if trigger:
                 tone=tone.lower()
             )
             email_txt = f"""Dear {company_name} Team,\n
-                            {email_content}\n
-                            Best regards,\n
-                            Your Microsoft Sales Team"""
+                        {email_content}\n
+                        Best regards,\n
+                        Your Microsoft Sales Team"""
 
             status.write("📰 Fetching industry news")
             news_headlines, news_text = get_industry_news(industry)
@@ -539,7 +539,7 @@ if trigger:
         st.subheader("✉️ Outreach Proposal")
 
         st.markdown("Suggested LinkedIn Message")
-        st.text_area("Generated LinkedIn Message", linkedin_content, height=150)
+        st.text_area("Generated LinkedIn Message", linkedin_content, height=100)
         with st.expander("Prompt Used", expanded=False):
             st.code(linkedin_prompt, language=None)
         
@@ -590,6 +590,7 @@ if trigger:
         st.markdown("Key Industry Trends:")
         st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
 
+        st.markdown("")
         st.markdown("")
         st.markdown("Top Headlines:")
         for hl in news_headlines:
