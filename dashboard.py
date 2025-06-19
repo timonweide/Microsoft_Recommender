@@ -268,7 +268,7 @@ def generate_project_plan(new_row_df, recommendations_df):
     3. Create a roadmap for the implementation of the solution, including key milestones and deliverables.
     """.strip()
 
-    project_plan_content = ask_llm(prompt, max_tokens=500)
+    project_plan_content = ask_llm(prompt, max_tokens=1000)
     
     return project_plan_content, prompt
 
@@ -307,7 +307,7 @@ def generate_email(new_row_df, predicted_products, sim_df, tone):
     
     return email_content, prompt
 
-def generate_linkedin(new_row_df, predicted_products, sim_df, tone):
+def generate_linkedin(new_row_df, tone):
     company_name = new_row_df['company_name'].values[0]
     business_need = new_row_df['business_need'].values[0]
     industry = new_row_df['industry'].values[0]
@@ -315,19 +315,15 @@ def generate_linkedin(new_row_df, predicted_products, sim_df, tone):
     employees = new_row_df['employees'].values[0]
     issues = new_row_df['issue_tags'].values[0]
 
-    issues_str = ", ".join(issues) if isinstance(issues, list) else issues
-    products_str = ", ".join(predicted_products)
-    sim_cases_str = "\n".join([f"- {c['company_name_cleaned']} ({c['industry']}, {c['region']}, {c['employees']}, {c['business_need']}, {c['related_list']}, {c['issue_tags']})" for c in sim_df])
-
     prompt = f"""
     You're a Microsoft sales advisor writing a brief, {tone} and engaging sales pitch via LinkedIn to a potential client.
-    Convince {company_name} how Microsoft products can help with their {business_need} needs in the {industry} industry.
+    Convince {company_name} how Microsoft products can help with their {business_need} needs in the {industry} industry in {region} tackling their {issues} issues.
 
     Tailor your arguments to the company's specific needs and challenges.
     Highlight how the recommended Microsoft products can address the issues.
     Base your arguments on how similar companies have successfully used these products without naming the companies.
 
-    Be sure to stay below 200 characters by prioritizing what you think would have the biggest effect on convincing the client.
+    Make sure to stay below 200 characters at all time by prioritizing what you think would have the biggest effect on convincing the client.
     Please return only the message content without any additional text or explanations.
     """.strip()
 
@@ -491,8 +487,6 @@ if trigger:
             status.write("💬 Generating LinkedIn message")
             linkedin_content, linkedin_prompt = generate_linkedin(
                 new_row_df=new_row_df,
-                predicted_products=predicted_products,
-                sim_df=sim_cases,
                 tone=tone.lower()
             )
 
@@ -503,14 +497,10 @@ if trigger:
                 sim_df=sim_cases,
                 tone=tone.lower()
             )
-            email_txt = f"""
-Dear {company_name} Team,\n
-\n
-{email_content}\n
-\n
-Best regards,\n
-Your Microsoft Sales Team
-            """
+            email_txt = f"""Dear {company_name} Team,\n
+                            {email_content}\n
+                            Best regards,\n
+                            Your Microsoft Sales Team"""
 
             status.write("📰 Fetching industry news")
             news_headlines, news_text = get_industry_news(industry)
