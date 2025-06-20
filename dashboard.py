@@ -511,7 +511,8 @@ if trigger:
 
         st.subheader("📑 Project Plan")
 
-        st.code("Suggested Project Plan", language="markdown")
+        st.markdown("Suggested Project Plan")
+        st.code(project_plan_content, language="markdown")
         with st.expander("Prompt Used", expanded=False):
             st.code(project_plan_prompt, language=None)
 
@@ -550,7 +551,7 @@ if trigger:
         st.markdown("---")
         st.subheader("✉️ Outreach Proposal")
 
-        linkedin_txt = st.text_area("Suggested LinkedIn Message", linkedin_content, height=75)
+        st.text_area("Suggested LinkedIn Message", linkedin_content, height=75)
         with st.expander("Prompt Used", expanded=False):
             st.code(linkedin_prompt, language=None)
         
@@ -558,7 +559,7 @@ if trigger:
         with col_txt:
             st.download_button(
                 "📄 Download LinkedIn Message (.txt)",
-                data=linkedin_txt,
+                data=linkedin_content,
                 file_name=f"{file_company_name}_linkedin_message.txt",
                 mime="text/plain",
                 use_container_width=True
@@ -566,7 +567,7 @@ if trigger:
         with col_pdf:
             st.download_button(
                 "📑 Download LinkedIn Message (.pdf)",
-                data=to_pdf_bytes(linkedin_txt),
+                data=to_pdf_bytes(linkedin_content),
                 file_name=f"{file_company_name}_linkedin_message.pdf",
                 mime="application/pdf",
                 use_container_width=True
