@@ -143,7 +143,7 @@ def find_similar_cases_full(
     return results
 
 def get_industry_news(industry, max_articles=5):
-    query = industry.replace("&", "and")  # sanitize query
+    query = industry.replace("&", "and")
     url = f"https://newsapi.org/v2/everything?q={query}&sortBy=publishedAt&pageSize={max_articles}&apiKey={NEWS_API_KEY}"
     try:
         response = requests.get(url)
@@ -265,7 +265,7 @@ Please create a structured and business-oriented project plan that includes:
 5. A short closing paragraph that positions Microsoft as a strategic transformation partner.
 
 Use professional tone. Write clearly and practically, as if presenting to a C-level stakeholder.
-Return only the plan.
+Return only the plan without formatting.
 """.strip()
 
     project_plan_content = ask_llm(prompt, max_tokens=1500)
@@ -310,24 +310,22 @@ def generate_email(new_row_df, predicted_products, sim_df, tone):
     sim_cases_str = "\n".join([f"- {c['company_name_cleaned']} ({c['industry']}, {c['region']}, {c['employees']}, {c['business_need']}, {c['related_list']}, {c['issue_tags']})" for c in sim_df])
 
     prompt = f"""
-You're a Microsoft sales advisor writing a {tone.lower()} and compelling outreach email to a potential B2B client.
+You're a Microsoft sales advisor writing a {tone} and engaging sales pitch email to a potential client.
+Convince {company_name} how Microsoft products can help with their {business_need} needs in the {industry} industry.
 
-Convince {company_name} how Microsoft's solutions can support their need for {business_need.lower()} in the {industry} sector, especially given their current situation in {region} and their size of {employees}.
+Tailor your arguments to the company's specific needs and challenges.
+Highlight how the recommended Microsoft products can address the issues.
+Base your arguments on how similar companies have successfully used these products without naming the companies.
 
-The client faces issues in: {issues_str}.
-You want to recommend: {products_str}.
-Based on the following similar companies, these products helped improve strategic outcomes:
-{sim_cases_str}
+The email should be structured as follows:
+1. Start with a short sentence explaining a typical challenge for a company in the {industry} sector with issues in {issues_str} and a need for {business_need} in {region}.
+2. Present Microsoft's recommended products: {products_str}.
+3. Summarize how these products address the issues {issues_str} and lead to qualitative and/or quantitative improvements of {business_need}.
+4. Include a brief story of the most relevant similar case and the results Microsoft achieved for that company, but don't name it: {sim_cases_str}.
+5. Wrap up with a positive outlook for digital transformation when partnering with Microsoft.
 
-Please:
-•⁠ Start with an empathetic hook that relates to challenges in this industry.
-•⁠ Explain why this company might be at an inflection point.
-•⁠ Introduce the Microsoft products as targeted enablers, not just tools.
-•⁠ Highlight expected benefits, even qualitatively (e.g. “faster insights, reduced costs, streamlined collaboration”).
-•⁠ End with a confident invitation to explore the fit together.
-
-Keep it clear and concise. Use natural business language and avoid technical jargon.
-Return only the email body including greeting and closing, no headings or explanations.
+Write the email in paragraphs without headings, greetings (e.g. "Dear...") or closings (e.g. "With best regards...").
+Please return only the email content without any additional text or explanations.
 """.strip()
 
     email_content = ask_llm(prompt, max_tokens=500)
@@ -507,13 +505,14 @@ if trigger:
                 sim_df=sim_cases,
                 tone=tone.lower()
             )
+            email_txt = f"""Dear [{company_name} decision-maker],\n{email_content}\nBest regards,\n[your name]\nMicrosoft Sales Team"""
 
             status.update(label="All done!", state="complete")
 
         st.subheader("📑 Project Plan")
 
         st.markdown("Suggested Project Plan")
-        st.code(project_plan_content, language="markdown")
+        st.text_area("Project Plan", project_plan_content, height=250)
         with st.expander("Prompt Used", expanded=False):
             st.code(project_plan_prompt, language=None)
 
@@ -576,7 +575,7 @@ if trigger:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        email_txt = st.text_area("Suggested Outreach Email", email_content, height=250)
+        st.text_area("Suggested Outreach Email", email_txt, height=250)
         with st.expander("Prompt Used", expanded=False):
             st.code(email_prompt, language=None)
 
