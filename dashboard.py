@@ -506,13 +506,12 @@ if trigger:
                 sim_df=sim_cases,
                 tone=tone.lower()
             )
-            email_txt = f"""Dear {company_name} Team,\n{email_content}\nBest regards,\nYour Microsoft Sales Team"""
 
             status.update(label="All done!", state="complete")
 
         st.subheader("📑 Project Plan")
-    
-        st.text_area("Suggested Project Plan", project_plan_content, height=250)
+
+        st.code("Suggested Project Plan", language="markdown")
         with st.expander("Prompt Used", expanded=False):
             st.code(project_plan_prompt, language=None)
 
@@ -551,7 +550,7 @@ if trigger:
         st.markdown("---")
         st.subheader("✉️ Outreach Proposal")
 
-        st.text_area("Suggested LinkedIn Message", linkedin_content, height=100)
+        linkedin_txt = st.text_area("Suggested LinkedIn Message", linkedin_content, height=75)
         with st.expander("Prompt Used", expanded=False):
             st.code(linkedin_prompt, language=None)
         
@@ -559,7 +558,7 @@ if trigger:
         with col_txt:
             st.download_button(
                 "📄 Download LinkedIn Message (.txt)",
-                data=linkedin_content,
+                data=linkedin_txt,
                 file_name=f"{file_company_name}_linkedin_message.txt",
                 mime="text/plain",
                 use_container_width=True
@@ -567,7 +566,7 @@ if trigger:
         with col_pdf:
             st.download_button(
                 "📑 Download LinkedIn Message (.pdf)",
-                data=to_pdf_bytes(linkedin_content),
+                data=to_pdf_bytes(linkedin_txt),
                 file_name=f"{file_company_name}_linkedin_message.pdf",
                 mime="application/pdf",
                 use_container_width=True
@@ -575,7 +574,7 @@ if trigger:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        st.text_area("Suggested Outreach Email", email_txt, height=250)
+        email_txt = st.text_area("Suggested Outreach Email", email_content, height=250)
         with st.expander("Prompt Used", expanded=False):
             st.code(email_prompt, language=None)
 
