@@ -265,7 +265,7 @@ Please create a structured and business-oriented project plan that includes:
 5. A short closing paragraph that positions Microsoft as a strategic transformation partner.
 
 Use professional tone. Write clearly and practically, as if presenting to a C-level stakeholder.
-Return only the plan without formatting.
+Return only the plan.
 """.strip()
 
     project_plan_content = ask_llm(prompt, max_tokens=1500)
@@ -310,8 +310,8 @@ def generate_email(new_row_df, predicted_products, sim_df, tone):
     sim_cases_str = "\n".join([f"- {c['company_name_cleaned']} ({c['industry']}, {c['region']}, {c['employees']}, {c['business_need']}, {c['related_list']}, {c['issue_tags']})" for c in sim_df])
 
     prompt = f"""
-You're a Microsoft sales advisor writing a {tone} and engaging sales pitch email to a potential client.
-Convince {company_name} how Microsoft products can help with their {business_need} needs in the {industry} industry.
+You're a Microsoft sales advisor writing a {tone.lower()} and engaging sales pitch email to a potential client.
+Convince {company_name} how Microsoft products can help with their {business_need.lower()} needs in the {industry} industry.
 
 Tailor your arguments to the company's specific needs and challenges.
 Highlight how the recommended Microsoft products can address the issues.
@@ -321,7 +321,8 @@ The email should be structured as follows:
 1. Start with a short sentence explaining a typical challenge for a company in the {industry} sector with issues in {issues_str} and a need for {business_need} in {region}.
 2. Present Microsoft's recommended products: {products_str}.
 3. Summarize how these products address the issues {issues_str} and lead to qualitative and/or quantitative improvements of {business_need}.
-4. Include a brief story of the most relevant similar case and the results Microsoft achieved for that company, but don't name it: {sim_cases_str}.
+4. Include a brief story of the most relevant similar case and the results Microsoft achieved for that company, but don't name it:
+{sim_cases_str}
 5. Wrap up with a positive outlook for digital transformation when partnering with Microsoft.
 
 Write the email in paragraphs without headings, greetings (e.g. "Dear...") or closings (e.g. "With best regards...").
@@ -505,7 +506,7 @@ if trigger:
                 sim_df=sim_cases,
                 tone=tone.lower()
             )
-            email_txt = f"""Dear [{company_name} decision-maker],\n{email_content}\nBest regards,\n[your name]\nMicrosoft Sales Team"""
+            email_txt = f"Dear [{company_name} decision-maker],\n\n{email_content}\n\nBest regards,\n[your name]\nMicrosoft Sales Team"
 
             status.update(label="All done!", state="complete")
 
