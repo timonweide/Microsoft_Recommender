@@ -7,11 +7,9 @@ from lightfm import LightFM
 from sklearn.neighbors import NearestNeighbors
 from scipy.sparse import csr_matrix
 import requests
-import io
 from io import StringIO
 from datetime import datetime
 from fpdf import FPDF
-import base64
 import cohere
 
 # --- Load data ---
@@ -36,11 +34,11 @@ DESC_LOOKUP = dict(
         product_descriptions["descriptions"])
 )
 
-# --- Get API keys ---
+# --- API keys ---
 NEWS_API_KEY = st.secrets["NEWS_API_KEY"]
 COHERE_API_KEY = st.secrets["COHERE_API_KEY"]
 
-# --- Processing ---
+# --- Model Training ---
 cat_feats = ['business_need', 'industry', 'region']
 num_feats = ['weighted_tone', 'weighted_article_count']
 ord_feats = ['employees']
@@ -536,6 +534,20 @@ if trigger:
             )
 
         st.markdown("---")
+        st.subheader("📈 Industry Trends")
+
+        st.markdown("Key Industry Trends:")
+        st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
+
+        st.markdown("")
+        st.markdown("")
+        st.markdown("Top Headlines:")
+        for hl in news_headlines:
+            st.markdown(hl)
+        with st.expander("Prompt Used", expanded=False):
+            st.code(trends_prompt, language=None)
+
+        st.markdown("---")
         st.subheader("✉️ Outreach Proposal")
 
         st.markdown("Suggested LinkedIn Message")
@@ -583,17 +595,3 @@ if trigger:
                 mime="application/pdf",
                 use_container_width=True
             )
-
-        st.markdown("---")
-        st.subheader("📈 Industry Trends")
-
-        st.markdown("Key Industry Trends:")
-        st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
-
-        st.markdown("")
-        st.markdown("")
-        st.markdown("Top Headlines:")
-        for hl in news_headlines:
-            st.markdown(hl)
-        with st.expander("Prompt Used", expanded=False):
-            st.code(trends_prompt, language=None)
