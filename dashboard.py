@@ -272,6 +272,31 @@ Return only the plan.
     
     return project_plan_content, prompt
 
+
+def generate_linkedin(new_row_df, predicted_products, tone):
+    company_name = new_row_df['company_name'].values[0]
+    business_need = new_row_df['business_need'].values[0]
+    industry = new_row_df['industry'].values[0]
+    region = new_row_df['region'].values[0]
+    employees = new_row_df['employees'].values[0]
+    issues = new_row_df['issue_tags'].values[0]
+
+    issues_str = ", ".join(issues) if isinstance(issues, list) else issues
+    products_str = ", ".join(predicted_products)
+
+    prompt = f"""
+Write a {tone.lower()}, sharp LinkedIn message (max 200 characters) to {company_name}, a company in the {industry} sector, facing challenges in {issues_str} and aiming to improve {business_need.lower()}.
+
+Suggest Microsoft as a solution partner, mention one or two relevant solutions (e.g. {products_str}), and imply potential value (e.g. “boost insight”, “streamline ops”, “accelerate growth”).
+
+Use strong, engaging wording but stay business-appropriate.
+Return only the message, no hashtags, emojis, or headings.
+""".strip()
+
+    linkedin_content = ask_llm(prompt, max_tokens=90)
+    
+    return linkedin_content, prompt
+
 def generate_email(new_row_df, predicted_products, sim_df, tone):
     company_name = new_row_df['company_name'].values[0]
     business_need = new_row_df['business_need'].values[0]
@@ -302,36 +327,12 @@ Please:
 •⁠ End with a confident invitation to explore the fit together.
 
 Keep it clear and concise. Use natural business language and avoid technical jargon.
-Return only the email body, no headings or explanations.
+Return only the email body including greeting and closing, no headings or explanations.
 """.strip()
 
     email_content = ask_llm(prompt, max_tokens=500)
     
     return email_content, prompt
-
-def generate_linkedin(new_row_df, predicted_products, tone):
-    company_name = new_row_df['company_name'].values[0]
-    business_need = new_row_df['business_need'].values[0]
-    industry = new_row_df['industry'].values[0]
-    region = new_row_df['region'].values[0]
-    employees = new_row_df['employees'].values[0]
-    issues = new_row_df['issue_tags'].values[0]
-
-    issues_str = ", ".join(issues) if isinstance(issues, list) else issues
-    products_str = ", ".join(predicted_products)
-
-    prompt = f"""
-Write a {tone.lower()}, sharp LinkedIn message (max 200 characters) to {company_name}, a company in the {industry} sector, facing challenges in {issues_str} and aiming to improve {business_need.lower()}.
-
-Suggest Microsoft as a solution partner, mention one or two relevant solutions (e.g. {products_str}), and imply potential value (e.g. “boost insight”, “streamline ops”, “accelerate growth”).
-
-Use strong, engaging wording but stay business-appropriate.
-Return only the message, no hashtags, emojis, or headings.
-""".strip()
-
-    linkedin_content = ask_llm(prompt, max_tokens=90)
-    
-    return linkedin_content, prompt
 
 def generate_trends(news_headlines, news_text, industry):
     if news_text and news_headlines:
