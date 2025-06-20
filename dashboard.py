@@ -251,20 +251,22 @@ def generate_project_plan(new_row_df, recommendations_df):
     product_descriptions_str = "\n".join([f"- {p}: {d}" for p, d in zip(recommendations_df['Product'], recommendations_df['Description'])])
 
     prompt = f"""
-    You're a Microsoft sales advisor writing a project plan for a potential client.
-    
-    1. For each of the recommended Microsoft products below, use the descriptions to show how they can help {company_name} with their {business_need} needs in the {industry} industry in {region} and tackle their issues.
-    
-    Issues:
-    {issues_str}
-    
-    Product Descriptions:
-    {product_descriptions_str}
+You are a Microsoft industry advisor preparing a project plan for {company_name}, a company in the {industry} industry based in {region}, with approximately {employees}.
 
-    2. Use the information you have to create a project plan that outlines the architecture of the solution, the expected outcomes, and how it will help {company_name} achieve their business goals.
+They are currently focused on improving their {business_need.lower()} and face challenges in: {issues_str}.
+You are recommending the following Microsoft products:
+{product_descriptions_str}
 
-    3. Create a roadmap for the implementation of the solution, including key milestones and deliverables.
-    """.strip()
+Please create a structured and business-oriented project plan that includes:
+1. An executive summary of the client's current challenges and opportunities.
+2. An architecture overview — describe how the recommended Microsoft products integrate into the company's processes.
+3. Expected outcomes — explain how these solutions address the pain points and deliver value.
+4. A phased implementation roadmap with key milestones and outcomes (e.g. Phase 1: Setup & Integration, Phase 2: Enablement, Phase 3: Optimization).
+5. A short closing paragraph that positions Microsoft as a strategic transformation partner.
+
+Use professional tone. Write clearly and practically, as if presenting to a C-level stakeholder.
+Return only the plan.
+""".strip()
 
     project_plan_content = ask_llm(prompt, max_tokens=1500)
     
@@ -283,29 +285,31 @@ def generate_email(new_row_df, predicted_products, sim_df, tone):
     sim_cases_str = "\n".join([f"- {c['company_name_cleaned']} ({c['industry']}, {c['region']}, {c['employees']}, {c['business_need']}, {c['related_list']}, {c['issue_tags']})" for c in sim_df])
 
     prompt = f"""
-    You're a Microsoft sales advisor writing a {tone} and engaging sales pitch email to a potential client.
-    Convince {company_name} how Microsoft products can help with their {business_need} needs in the {industry} industry.
+You're a Microsoft sales advisor writing a {tone.lower()} and compelling outreach email to a potential B2B client.
 
-    Tailor your arguments to the company's specific needs and challenges.
-    Highlight how the recommended Microsoft products can address the issues.
-    Base your arguments on how similar companies have successfully used these products without naming the companies.
+Convince {company_name} how Microsoft's solutions can support their need for {business_need.lower()} in the {industry} sector, especially given their current situation in {region} and their size of {employees}.
 
-    The email should be structured as follows:
-    1. Start with a short sentence explaining a typical challenge for a company in the {industry} sector with issues in {issues_str} and a need for {business_need} in {region}.
-    2. Present Microsoft's recommended products: {products_str}.
-    3. Summarize how these products address the issues {issues_str} and lead to qualitative and/or quantitative improvements of {business_need}.
-    4. Include a brief story of the most relevant similar case and the results Microsoft achieved for that company, but don't name it: {sim_cases_str}.
-    5. Wrap up with a positive outlook for digital transformation when partnering with Microsoft.
+The client faces issues in: {issues_str}.
+You want to recommend: {products_str}.
+Based on the following similar companies, these products helped improve strategic outcomes:
+{sim_cases_str}
 
-    Write the email in paragraphs without headings
-    Please return only the email content without any additional text or explanations.
-    """.strip()
+Please:
+•⁠ Start with an empathetic hook that relates to challenges in this industry.
+•⁠ Explain why this company might be at an inflection point.
+•⁠ Introduce the Microsoft products as targeted enablers, not just tools.
+•⁠ Highlight expected benefits, even qualitatively (e.g. “faster insights, reduced costs, streamlined collaboration”).
+•⁠ End with a confident invitation to explore the fit together.
+
+Keep it clear and concise. Use natural business language and avoid technical jargon.
+Return only the email body, no headings or explanations.
+""".strip()
 
     email_content = ask_llm(prompt, max_tokens=500)
     
     return email_content, prompt
 
-def generate_linkedin(new_row_df, tone):
+def generate_linkedin(new_row_df, predicted_products, tone):
     company_name = new_row_df['company_name'].values[0]
     business_need = new_row_df['business_need'].values[0]
     industry = new_row_df['industry'].values[0]
@@ -313,17 +317,17 @@ def generate_linkedin(new_row_df, tone):
     employees = new_row_df['employees'].values[0]
     issues = new_row_df['issue_tags'].values[0]
 
+    issues_str = ", ".join(issues) if isinstance(issues, list) else issues
+    products_str = ", ".join(predicted_products)
+
     prompt = f"""
-    You're a Microsoft sales advisor writing a brief, {tone} and engaging sales pitch via LinkedIn to a potential client.
-    Convince {company_name} how Microsoft products can help with their {business_need} needs in the {industry} industry in {region} tackling their {issues} issues.
+Write a {tone.lower()}, sharp LinkedIn message (max 200 characters) to {company_name}, a company in the {industry} sector, facing challenges in {issues_str} and aiming to improve {business_need.lower()}.
 
-    Tailor your arguments to the company's specific needs and challenges.
-    Highlight how the recommended Microsoft products can address the issues.
-    Base your arguments on how similar companies have successfully used these products without naming the companies.
+Suggest Microsoft as a solution partner, mention one or two relevant solutions (e.g. {products_str}), and imply potential value (e.g. “boost insight”, “streamline ops”, “accelerate growth”).
 
-    Make sure to stay below 200 characters at all time by prioritizing what you think would have the biggest effect on convincing the client.
-    Please return only the message content without any additional text or explanations.
-    """.strip()
+Use strong, engaging wording but stay business-appropriate.
+Return only the message, no hashtags, emojis, or headings.
+""".strip()
 
     linkedin_content = ask_llm(prompt, max_tokens=90)
     
@@ -333,10 +337,10 @@ def generate_trends(news_headlines, news_text, industry):
     if news_text and news_headlines:
         
         prompt = f"""
-        Please extract exactly three current trends from the following news descriptions related to the {industry} industry.
-        Format your response as a numbered list with short, clear sentences. Each point should be no longer than 2 lines:
-        {news_text}
-        """.strip()
+Please extract exactly three current trends from the following news descriptions related to the {industry} industry.
+Format your response as a numbered list with short, clear sentences. Each point should be no longer than 2 lines:
+{news_text}
+""".strip()
 
         trends = ask_llm(prompt, max_tokens=90)
 
@@ -352,7 +356,7 @@ st.markdown("This tool helps Microsoft sales teams recommend products based on c
 
 # --- Sidebar ---
 with st.sidebar:
-    st.header("Input Parameters")
+    st.header("⚙️ Input Parameters")
     st.markdown("---")
     company_name = st.text_input("Company Name")
     business_need = st.selectbox("Business Need",sorted(df["business_need"].dropna().unique()))
@@ -400,12 +404,12 @@ if trigger:
     with tab1:
         with st.status("Generating recommendations...", expanded=False) as status:
 
-            status.write("🔍 Fetching company news")
+            status.write("📰 Fetching company news")
             weighted_tone, weighted_article_count = get_company_news(company_name, df)
             new_row_df['weighted_tone'] = weighted_tone
             new_row_df['weighted_article_count'] = weighted_article_count
 
-            status.write("♟️ Computing recommendations")
+            status.write("⚙️ Computing recommendations")
             recommendations = predict_from_inputs(
                 new_row_df=new_row_df,
                 model=model_full,
@@ -482,9 +486,16 @@ if trigger:
                 recommendations_df=recommendations_df
             )
 
+            status.write("📰 Fetching industry news")
+            news_headlines, news_text = get_industry_news(industry)
+
+            status.write("📈 Analyzing trends")
+            news_headlines, trends, trends_prompt = generate_trends(news_headlines, news_text, industry)
+
             status.write("💬 Generating LinkedIn message")
             linkedin_content, linkedin_prompt = generate_linkedin(
                 new_row_df=new_row_df,
+                predicted_products=predicted_products,
                 tone=tone.lower()
             )
 
@@ -495,23 +506,13 @@ if trigger:
                 sim_df=sim_cases,
                 tone=tone.lower()
             )
-            email_txt = f"""Dear {company_name} Team,\n
-                        {email_content}\n
-                        Best regards,\n
-                        Your Microsoft Sales Team"""
-
-            status.write("📰 Fetching industry news")
-            news_headlines, news_text = get_industry_news(industry)
-
-            status.write("📈 Analyzing trends")
-            news_headlines, trends, trends_prompt = generate_trends(news_headlines, news_text, industry)
+            email_txt = f"""Dear {company_name} Team,\n{email_content}\nBest regards,\nYour Microsoft Sales Team"""
 
             status.update(label="All done!", state="complete")
 
         st.subheader("📑 Project Plan")
     
-        st.markdown("Suggested Project Plan")
-        st.text_area("Project Plan", project_plan_content, height=250)
+        st.text_area("Suggested Project Plan", project_plan_content, height=250)
         with st.expander("Prompt Used", expanded=False):
             st.code(project_plan_prompt, language=None)
 
@@ -538,9 +539,9 @@ if trigger:
 
         st.markdown("Key Industry Trends:")
         st.markdown(f"<div style='line-height: 1.6'>{trends.replace(chr(10), '<br><br>')}</div>", unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
 
-        st.markdown("")
-        st.markdown("")
         st.markdown("Top Headlines:")
         for hl in news_headlines:
             st.markdown(hl)
@@ -550,8 +551,7 @@ if trigger:
         st.markdown("---")
         st.subheader("✉️ Outreach Proposal")
 
-        st.markdown("Suggested LinkedIn Message")
-        st.text_area("Generated LinkedIn Message", linkedin_content, height=100)
+        st.text_area("Suggested LinkedIn Message", linkedin_content, height=100)
         with st.expander("Prompt Used", expanded=False):
             st.code(linkedin_prompt, language=None)
         
@@ -573,8 +573,9 @@ if trigger:
                 use_container_width=True
             )
 
-        st.markdown("Suggested Outreach Email")
-        st.text_area("Generated Email", email_txt, height=250)
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        st.text_area("Suggested Outreach Email", email_txt, height=250)
         with st.expander("Prompt Used", expanded=False):
             st.code(email_prompt, language=None)
 
